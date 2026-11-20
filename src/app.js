@@ -80,7 +80,7 @@ let C = clone(window.PM_DEFAULT_CURRICULUM);
 const S = {
   route: { v: "dash" }, tab: "video", quiz: null, me: null, preview: false, saveState: "",
   cMeta: null, benefits: { items: [] }, lb: [], lbMode: "month", users: null, userDraft: {}, addUser: null,
-  confirm: null, benDraft: null, ed: null, login: { step: "email", email: "", busy: false, error: "" },
+  confirm: null, benDraft: null, ed: null, login: { mode: "password", step: "email", email: "", busy: false, error: "" },
 };
 function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function lsSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
@@ -493,6 +493,9 @@ function vProfile() {
   </div>
   ${isAdmin() ? `<div class="card stack-sm"><h2 class="h-sec">Voorbeeldmodus</h2><label class="check"><input type="checkbox" id="p-preview" ${S.preview ? "checked" : ""}><span>Open alle modules en quizzen voor jezelf om de inhoud na te lopen. Telt niet mee voor je voortgang en geldt alleen in dit tabblad.</span></label></div>` : ""}
   ${be.mode === "demo" ? `<div class="card stack-sm"><h2 class="h-sec">Demo: bekijk als</h2><p class="small muted">Wissel van rol om te zien wat elke rol ziet.</p><div class="seg">${["super_admin", "admin", "management", "user"].map(r => `<button data-demo-role="${r}" aria-pressed="${role() === r}">${ROLE_LABEL[r]}</button>`).join("")}</div></div>` : ""}
+  ${be.mode === "live" ? `<div class="card stack"><div class="stack-sm" style="gap:4px"><h2 class="h-sec">Wachtwoord</h2><p class="small muted">Stel een wachtwoord in, dan log je voortaan in met je e-mailadres en wachtwoord. Een code per mail blijft altijd mogelijk.</p></div>
+    <div class="grid-2"><label class="field"><span>Nieuw wachtwoord</span><input type="password" id="pw-new" autocomplete="new-password" minlength="8" placeholder="Minimaal 8 tekens"></label><label class="field"><span>Herhaal wachtwoord</span><input type="password" id="pw-repeat" autocomplete="new-password" minlength="8"></label></div>
+    <div><button class="btn sm" data-set-password>Wachtwoord opslaan</button></div></div>` : ""}
   <div class="card stack-sm"><h2 class="h-sec">Opnieuw beginnen</h2><p class="small muted">Wist je workbookantwoorden, quizscores en certificaten.</p>
   ${S.confirm && S.confirm.kind === "reset" ? `<div class="confirm"><span class="small">Weet je het zeker? Dit kun je niet ongedaan maken.</span><button class="btn sm" data-reset-yes>Ja, alles wissen</button><button class="linkbtn" data-confirm-no>Annuleren</button></div>` : `<div><button class="btn ghost sm" data-reset>Voortgang wissen</button></div>`}</div>
   <div class="card spread"><div class="stack-sm" style="gap:2px"><span class="eyebrow">Ingelogd als</span><b>${esc(S.me.email)}</b></div><button class="btn ghost sm" data-logout>${be.mode === "demo" ? "Demo opnieuw beginnen" : "Uitloggen"}</button></div>`;
@@ -630,14 +633,21 @@ function validate(d) {
 
 /* ---------- Login ---------- */
 function vLogin() {
-  const L = S.login;
-  const form = L.step === "email"
-    ? `<form class="stack" id="login-form" data-login="email"><label class="field"><span>E-mailadres</span><input type="email" id="login-email" required autocomplete="email" inputmode="email" placeholder="naam@pmagency.nl" value="${esc(L.email)}"></label><button class="btn accent" type="submit" ${L.busy ? "disabled" : ""}>${L.busy ? "Bezig…" : "Stuur inlogcode"}</button></form>`
-    : `<form class="stack" id="login-form" data-login="code"><p class="muted small">We hebben een code gestuurd naar <b>${esc(L.email)}</b>. Kijk ook in je spam.</p><label class="field"><span>Inlogcode</span><input type="text" id="login-code" required autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6,10}" maxlength="10" placeholder="123456"></label><button class="btn accent" type="submit" ${L.busy ? "disabled" : ""}>${L.busy ? "Bezig…" : "Inloggen"}</button><button class="linkbtn" type="button" data-login-back>Ander e-mailadres</button></form>`;
+  const L = S.login, pw = L.mode !== "code";
+  let form;
+  if (pw) form = `<form class="stack" id="login-form" data-login="password">
+      <label class="field"><span>E-mailadres</span><input type="email" id="login-email" required autocomplete="username" inputmode="email" placeholder="naam@pmagency.nl" value="${esc(L.email)}"></label>
+      <label class="field"><span>Wachtwoord</span><input type="password" id="login-password" required autocomplete="current-password" placeholder="Je wachtwoord"></label>
+      <button class="btn accent" type="submit" ${L.busy ? "disabled" : ""}>${L.busy ? "Bezig…" : "Inloggen"}</button></form>
+    <div class="stack-sm" style="gap:6px;border-top:1px solid var(--line);padding-top:16px"><span class="small muted">Eerste keer, of wachtwoord vergeten?</span><button class="btn ghost" type="button" data-login-mode="code">${icon("info", 16)} Log in met een code per mail</button></div>`;
+  else if (L.step === "email") form = `<form class="stack" id="login-form" data-login="email"><p class="small muted">Je krijgt een code per mail waarmee je inlogt. Daarna kun je bij Profiel een wachtwoord instellen.</p><label class="field"><span>E-mailadres</span><input type="email" id="login-email" required autocomplete="email" inputmode="email" placeholder="naam@pmagency.nl" value="${esc(L.email)}"></label><button class="btn accent" type="submit" ${L.busy ? "disabled" : ""}>${L.busy ? "Bezig…" : "Stuur inlogcode"}</button></form>
+    <button class="linkbtn" type="button" data-login-mode="password">${icon("left", 14)} Inloggen met wachtwoord</button>`;
+  else form = `<form class="stack" id="login-form" data-login="code"><p class="muted small">We hebben een code gestuurd naar <b>${esc(L.email)}</b>. Kijk ook in je spam.</p><label class="field"><span>Inlogcode</span><input type="text" id="login-code" required autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6,10}" maxlength="10" placeholder="12345678"></label><button class="btn accent" type="submit" ${L.busy ? "disabled" : ""}>${L.busy ? "Bezig…" : "Inloggen"}</button></form>
+    <div class="row"><button class="linkbtn" type="button" data-login-back>Nieuwe code of ander e-mailadres</button><button class="linkbtn" type="button" data-login-mode="password">Inloggen met wachtwoord</button></div>`;
   return `<div class="login-wrap"><div class="login-card"><div class="top"><img src="/brand/wordmark-cream.png" alt="PM Agency"><span>Academy</span></div><div class="body">
-    <div class="stack-sm"><h1 class="h-page" style="font-size:40px">Inloggen</h1><p class="muted">Log in met je e-mailadres. Je krijgt een code per mail; een wachtwoord is niet nodig.</p></div>
+    <div class="stack-sm"><h1 class="h-page" style="font-size:40px">Inloggen</h1><p class="muted">${pw ? "Log in met je e-mailadres en wachtwoord." : "Log in met een code die we je mailen."}</p></div>
     ${L.error ? `<div class="note">${icon("info", 18)}<span>${esc(L.error)}</span></div>` : ""}${form}
-    <p class="small muted">Nog geen toegang? Vraag je teamleider om je toe te voegen.</p></div></div></div>`;
+    <p class="small muted">Nog geen account? Vraag je teamleider om je toe te voegen.</p></div></div></div>`;
 }
 
 /* ---------- Render ---------- */
@@ -685,7 +695,16 @@ document.addEventListener("click", async e => {
   if ("resetYes" in d) { P = blankProgress(); S.confirm = null; save(); toast("Voortgang gewist"); return render(true); }
   if ("logout" in d) { await be.signOut(); lsSet("pm-academy-ui", "{}"); location.reload(); return; }
   if (d.demoRole) { be.setDemoRole(d.demoRole); S.me = await be.me(); S.users = null; S.dStats = null; S.dossier = null; S.entry = null; if (isStaff() && !S.templates) await loadTemplates(); return render(true); }
-  if ("loginBack" in d) { S.login = { step: "email", email: S.login.email, busy: false, error: "" }; return render(true); }
+  if ("loginBack" in d) { S.login = { mode: "code", step: "email", email: S.login.email, busy: false, error: "" }; return render(true); }
+  if (d.loginMode) { S.login = { mode: d.loginMode, step: "email", email: S.login.email, busy: false, error: "" }; return render(true); }
+  if ("setPassword" in d) {
+    const a = document.getElementById("pw-new").value, b = document.getElementById("pw-repeat").value;
+    if (a.length < 8) { toast("Kies een wachtwoord van minimaal 8 tekens"); return; }
+    if (a !== b) { toast("De wachtwoorden zijn niet gelijk"); return; }
+    try { await be.setPassword(a); document.getElementById("pw-new").value = ""; document.getElementById("pw-repeat").value = ""; toast("Wachtwoord ingesteld. Je kunt nu inloggen met e-mail en wachtwoord."); }
+    catch (err) { toast(/same/i.test(err.message || "") ? "Dit is al je huidige wachtwoord" : /weak|short|characters/i.test(err.message || "") ? "Dit wachtwoord is te zwak. Kies een langer wachtwoord." : (err.message || "Opslaan lukte niet")); }
+    return;
+  }
 
   // Benefits
   if ("benEdit" in d) { S.benDraft = (S.benefits.items || []).map(b => ({ title: b.title || "", desc: b.desc || "", req: b.req || "" })); if (!S.benDraft.length) S.benDraft.push({ title: "", desc: "", req: "" }); return render(true); }
@@ -813,35 +832,40 @@ document.addEventListener("change", async e => {
     if (d.ea) { const [i, j] = d.ea.split(":").map(Number); N.quiz[i].answer = j; return edDirty(); }
   }
 });
+// Na een geslaagde login (code of wachtwoord) de app laden. Lukt dat niet, dan blijft de echte reden zichtbaar.
+async function afterLogin(how) {
+  try { await start(); S.login.busy = false; if (how === "code") setTimeout(() => toast("Ingelogd. Tip: stel bij Profiel een wachtwoord in."), 600); return true; }
+  catch (err) {
+    console.error("Inloggen gelukt, maar laden mislukte:", err);
+    const m = String(err && (err.message || err.code) || err);
+    const L = S.login; L.busy = false; L.step = "email";
+    L.error = /relation|does not exist|schema cache|PGRST20[25]/i.test(m) ? "Je bent ingelogd, maar de database is nog niet ingericht. Voer supabase/schema.sql uit in de SQL Editor van Supabase."
+      : /0 rows|PGRST116|multiple \(or no\) rows|no rows/i.test(m) ? "Je bent ingelogd, maar er is geen profiel voor dit e-mailadres. Voer supabase/schema.sql opnieuw uit; dat maakt ontbrekende profielen aan."
+      : "Je bent ingelogd, maar je gegevens konden niet worden geladen. Technische melding: " + m;
+    S.quietSignOut = true; await be.signOut().catch(() => {}); S.quietSignOut = false;
+    S.route = { v: "login" }; render(true); return false;
+  }
+}
 document.addEventListener("submit", async e => {
   const f = e.target; if (f.id !== "login-form") return;
-  e.preventDefault(); const L = S.login;
+  e.preventDefault(); const L = S.login, kind = f.dataset.login;
   const emailIn = document.getElementById("login-email")?.value.trim();
   const token = (document.getElementById("login-code")?.value || "").replace(/\s/g, "");
+  const password = document.getElementById("login-password")?.value || "";
   if (emailIn) L.email = emailIn;
   L.error = ""; L.busy = true; render(true);
   try {
-    if (f.dataset.login === "email") { await be.sendCode(L.email); L.step = "code"; }
-    else {
-      await be.verifyCode(L.email, token);
-      try { L.busy = false; await start(); return; }
-      catch (err) {
-        console.error("Inloggen gelukt, maar laden mislukte:", err);
-        const m = String(err && (err.message || err.code) || err);
-        L.step = "email"; L.busy = false;
-        L.error = /relation|does not exist|schema cache|PGRST20[25]/i.test(m) ? "De code klopte, maar de database is nog niet ingericht. Voer supabase/schema.sql uit in de SQL Editor van Supabase."
-          : /0 rows|PGRST116|multiple \(or no\) rows|no rows/i.test(m) ? "De code klopte, maar er is geen profiel voor dit e-mailadres. Voer supabase/schema.sql (opnieuw) uit; dat maakt ontbrekende profielen aan."
-          : "De code klopte, maar je gegevens konden niet worden geladen. Technische melding: " + m;
-        await be.signOut().catch(() => {});
-        return render(true);
-      }
-    }
+    if (kind === "password") { await be.signInPassword(L.email, password); await afterLogin("password"); return; }
+    if (kind === "email") { await be.sendCode(L.email); L.step = "code"; }
+    else { await be.verifyCode(L.email, token); await afterLogin("code"); return; }
   } catch (err) {
     console.error("Inloggen mislukt:", err);
     const m = String(err && err.message || "");
-    L.error = /signups not allowed|not found|Signups/i.test(m) ? "Dit e-mailadres heeft nog geen toegang. Vraag je teamleider om je toe te voegen."
+    L.error = /invalid login credentials/i.test(m) ? "E-mailadres of wachtwoord klopt niet. Nog geen wachtwoord ingesteld? Log in met een code per mail."
+      : /email not confirmed/i.test(m) ? "Dit e-mailadres is nog niet bevestigd. Log in met een code per mail."
+      : /signups not allowed|not found|Signups/i.test(m) ? "Dit e-mailadres heeft nog geen toegang. Vraag je teamleider om je toe te voegen."
       : /expired|invalid/i.test(m) ? "Deze code klopt niet of is verlopen. Vraag een nieuwe code aan."
-      : /rate|too many|seconds/i.test(m) ? "Even wachten voordat je een nieuwe code aanvraagt."
+      : /rate|too many|seconds/i.test(m) ? "Even wachten voordat je het opnieuw probeert."
       : "Inloggen lukte niet. Technische melding: " + (m || "onbekend");
   }
   L.busy = false; render(true);
@@ -913,9 +937,9 @@ async function start() {
 (async function boot() {
   const remembered = S.route;
   const sess = await be.session().catch(() => null);
-  if (!sess) { S.route = { v: "login" }; render(true); be.onSignedOut(() => location.reload()); return; }
+  if (!sess) { S.route = { v: "login" }; render(true); be.onSignedOut(() => { if (!S.quietSignOut && S.me) location.reload(); }); return; }
   S.route = remembered.v === "login" ? { v: "dash" } : remembered;
-  be.onSignedOut(() => location.reload());
+  be.onSignedOut(() => { if (!S.quietSignOut) location.reload(); });
   await start();
   window.addEventListener("focus", async () => {
     if (S.route.v === "content" || editing()) return;

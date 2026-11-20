@@ -33,6 +33,11 @@ function liveBackend(cfg) {
       const d = ok(await sb.auth.verifyOtp({ email: addr, token, type: "email" }));
       uid = d.session.user.id; email = d.session.user.email || ""; return { uid, email };
     },
+    async signInPassword(addr, password) {
+      const d = ok(await sb.auth.signInWithPassword({ email: addr, password }));
+      uid = d.session.user.id; email = d.session.user.email || ""; return { uid, email };
+    },
+    async setPassword(password) { ok(await sb.auth.updateUser({ password })); },
     async signOut() { await sb.auth.signOut(); },
     onSignedOut(cb) { sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_OUT") cb(); }); },
     async me() { return ok(await sb.from("profiles").select("*").eq("id", uid).single()); },
@@ -141,6 +146,7 @@ function demoBackend() {
     mode: "demo",
     async session() { return { uid: "demo-me", email: me().email }; },
     async sendCode() {}, async verifyCode() { return { uid: "demo-me", email: me().email }; },
+    async signInPassword() { return { uid: "demo-me", email: me().email }; }, async setPassword() {},
     async signOut() { try { localStorage.removeItem(KEY); localStorage.removeItem(ROLE_KEY); } catch {} },
     onSignedOut() {},
     async me() { return clone(me()); },

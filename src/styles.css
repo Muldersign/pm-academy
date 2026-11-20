@@ -230,7 +230,7 @@ p { margin: 0; }
 .wb-q { display: flex; flex-direction: column; gap: 10px; }
 .wb-q label { font-weight: 700; font-size: 16px; display: flex; gap: 12px; }
 .wb-q label .n { font-family: var(--display); font-weight: 400; font-size: 18px; color: var(--accent); }
-textarea, input[type="text"], input[type="number"], input[type="date"], input[type="url"], input[type="email"], select { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 11px 13px; font-size: 15px; }
+textarea, input[type="text"], input[type="number"], input[type="date"], input[type="url"], input[type="email"], input[type="password"], select { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 11px 13px; font-size: 15px; }
 textarea { min-height: 104px; resize: vertical; line-height: 1.5; }
 textarea:focus, input:focus, select:focus { outline: none; border-color: var(--ink); }
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }

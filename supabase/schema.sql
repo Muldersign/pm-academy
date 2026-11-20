@@ -249,3 +249,26 @@ create policy "dossier: medewerker leest gedeelde bijlagen" on storage.objects f
       where e.id::text = (storage.foldername(name))[2] and e.user_id = auth.uid() and e.shared
     )
   );
+
+-- ---------------------------------------------------------------------------
+-- Toegang voor de app (Data API)
+-- Nieuwe Supabase-projecten geven ingelogde gebruikers niet automatisch toegang
+-- tot zelfgemaakte tabellen. Wat iemand per rij mag, regelen de policies hierboven.
+-- ---------------------------------------------------------------------------
+grant usage on schema public to authenticated, service_role;
+revoke all on public.profiles, public.progress, public.team_summary, public.app_content,
+  public.staff_content, public.dossier_entries, public.dossier_notes from anon;
+
+grant select, update on public.profiles to authenticated;
+grant select, insert, update on public.progress to authenticated;
+grant select, insert, update on public.team_summary to authenticated;
+grant select, insert, update on public.app_content to authenticated;
+grant select, insert, update on public.staff_content to authenticated;
+grant select, insert, update, delete on public.dossier_entries to authenticated;
+grant select, insert, delete on public.dossier_notes to authenticated;
+
+grant all on public.profiles, public.progress, public.team_summary, public.app_content,
+  public.staff_content, public.dossier_entries, public.dossier_notes to service_role;
+
+grant execute on function public.my_role(), public.is_admin(), public.is_staff(),
+  public.is_super_admin(), public.get_leaderboard() to authenticated;
