@@ -20,6 +20,7 @@ const app = read("src/app.js").replace(/if \("serviceWorker" in navigator[^\n]*\
 const scripts = [
   "window.PM_CONFIG = { unlockAll: true, noEmbed: true };",
   read("src/curriculum.default.js"),
+  read("src/crm.js"),
   read("src/backend.js"),
   read("src/dossier.js"),
   inlineAssets(app),
@@ -30,6 +31,7 @@ const html = `<title>PM Agency Academy</title>
 <link rel="icon" href="${dataUri("public/favicon.svg", "image/svg+xml")}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Bodoni+Moda:opsz,wght@6..96,500&family=Montserrat:wght@400;500;600;700;800&display=swap">
 <style>
 ${read("src/styles.css")}

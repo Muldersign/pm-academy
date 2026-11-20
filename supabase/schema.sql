@@ -16,6 +16,10 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- Koppeling met het CRM (Fieldstars): de medewerkercode ("alias") uit de orderexport.
+alter table public.profiles add column if not exists crm_code text;
+create unique index if not exists profiles_crm_code on public.profiles (lower(crm_code)) where crm_code is not null and crm_code <> '';
+
 -- Rollen (ook bij bestaande databases bijwerken).
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check check (role in ('super_admin', 'admin', 'management', 'user'));
@@ -98,6 +102,7 @@ begin
   if not public.is_admin() then
     new.sales_total := old.sales_total;
     new.sales_month := old.sales_month;
+    new.crm_code := old.crm_code;
   end if;
   return new;
 end;
@@ -165,11 +170,14 @@ create policy "content: beheerder wijzigen" on public.app_content for update to 
 
 -- Gespreksformats (vragen en documenten per gesprekstype). Alleen management en beheer lezen; beheer schrijft.
 create table if not exists public.staff_content (
-  key text primary key check (key in ('dossier_templates')),
+  key text primary key,
   data jsonb not null default '{}'::jsonb,
   updated_by uuid references auth.users (id) on delete set null,
   updated_at timestamptz not null default now()
 );
+
+alter table public.staff_content drop constraint if exists staff_content_key_check;
+alter table public.staff_content add constraint staff_content_key_check check (key in ('dossier_templates', 'crm_settings'));
 
 -- Gesprekken. Concept = alleen management en beheer; shared = de medewerker ziet het ook.
 create table if not exists public.dossier_entries (
@@ -251,13 +259,101 @@ create policy "dossier: medewerker leest gedeelde bijlagen" on storage.objects f
   );
 
 -- ---------------------------------------------------------------------------
+-- Sales uit het CRM (Fieldstars)
+-- Orders worden per order-id opgeslagen (eenmalige upload + dagelijkse synchronisatie van de
+-- laatste dagen). De sales per medewerker worden hieruit berekend.
+-- ---------------------------------------------------------------------------
+create table if not exists public.crm_orders (
+  id text primary key,
+  code text not null default '',
+  name text not null default '',
+  order_date date,
+  uitval boolean not null default false,
+  sales numeric not null default 1,
+  netto numeric not null default 1,
+  synced_at timestamptz not null default now()
+);
+create index if not exists crm_orders_code on public.crm_orders (lower(code));
+create index if not exists crm_orders_date on public.crm_orders (order_date);
+
+create table if not exists public.sync_runs (
+  id uuid primary key default gen_random_uuid(),
+  ran_at timestamptz not null default now(),
+  source text not null default 'auto',
+  ok boolean not null default true,
+  orders int not null default 0,
+  updated_users int not null default 0,
+  message text not null default '',
+  unmatched jsonb not null default '[]'::jsonb
+);
+
+alter table public.crm_orders enable row level security;
+alter table public.sync_runs enable row level security;
+drop policy if exists "crm: lezen" on public.crm_orders;
+create policy "crm: lezen" on public.crm_orders for select to authenticated using (public.is_staff());
+drop policy if exists "crm: aanmaken" on public.crm_orders;
+create policy "crm: aanmaken" on public.crm_orders for insert to authenticated with check (public.is_admin());
+drop policy if exists "crm: wijzigen" on public.crm_orders;
+create policy "crm: wijzigen" on public.crm_orders for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "sync: lezen" on public.sync_runs;
+create policy "sync: lezen" on public.sync_runs for select to authenticated using (public.is_staff());
+drop policy if exists "sync: aanmaken" on public.sync_runs;
+create policy "sync: aanmaken" on public.sync_runs for insert to authenticated with check (public.is_admin());
+
+-- Telt uitval mee? Instelling in staff_content (crm_settings.countUitval), standaard ja.
+create or replace function public.crm_count_uitval()
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select (data ->> 'countUitval')::boolean from public.staff_content where key = 'crm_settings'), true);
+$$;
+
+-- Overzicht per CRM-medewerker (voor de koppelpagina).
+create or replace function public.crm_summary()
+returns table (code text, name text, total numeric, month numeric, last_order date, orders bigint)
+language plpgsql stable security definer set search_path = public as $$
+declare
+  bruto boolean := public.crm_count_uitval();
+  m0 date := date_trunc('month', (now() at time zone 'Europe/Amsterdam'))::date;
+begin
+  if auth.uid() is not null and not public.is_staff() then raise exception 'Geen toegang'; end if;
+  return query
+    select o.code, max(o.name),
+           sum(case when bruto then o.sales else o.netto end),
+           sum(case when o.order_date >= m0 and o.order_date < (m0 + interval '1 month')::date then (case when bruto then o.sales else o.netto end) else 0 end),
+           max(o.order_date), count(*)
+    from public.crm_orders o
+    where o.code <> ''
+    group by o.code
+    order by 3 desc;
+end;
+$$;
+
+-- Zet sales_total en sales_month van gekoppelde gebruikers op basis van de orders.
+create or replace function public.recompute_sales()
+returns int language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if auth.uid() is not null and not public.is_admin() then raise exception 'Alleen beheerders'; end if;
+  update public.profiles p
+     set sales_total = coalesce(s.total, 0)::int,
+         sales_month = coalesce(s.month, 0)::int
+    from (select pr.id, cs.total, cs.month
+            from public.profiles pr
+            left join public.crm_summary() cs on lower(cs.code) = lower(pr.crm_code)
+           where pr.crm_code is not null and pr.crm_code <> '') s
+   where p.id = s.id;
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- Toegang voor de app (Data API)
 -- Nieuwe Supabase-projecten geven ingelogde gebruikers niet automatisch toegang
 -- tot zelfgemaakte tabellen. Wat iemand per rij mag, regelen de policies hierboven.
 -- ---------------------------------------------------------------------------
 grant usage on schema public to authenticated, service_role;
 revoke all on public.profiles, public.progress, public.team_summary, public.app_content,
-  public.staff_content, public.dossier_entries, public.dossier_notes from anon;
+  public.staff_content, public.dossier_entries, public.dossier_notes, public.crm_orders, public.sync_runs from anon;
 
 grant select, update on public.profiles to authenticated;
 grant select, insert, update on public.progress to authenticated;
@@ -266,9 +362,12 @@ grant select, insert, update on public.app_content to authenticated;
 grant select, insert, update on public.staff_content to authenticated;
 grant select, insert, update, delete on public.dossier_entries to authenticated;
 grant select, insert, delete on public.dossier_notes to authenticated;
+grant select, insert, update on public.crm_orders to authenticated;
+grant select, insert on public.sync_runs to authenticated;
 
 grant all on public.profiles, public.progress, public.team_summary, public.app_content,
-  public.staff_content, public.dossier_entries, public.dossier_notes to service_role;
+  public.staff_content, public.dossier_entries, public.dossier_notes, public.crm_orders, public.sync_runs to service_role;
 
 grant execute on function public.my_role(), public.is_admin(), public.is_staff(),
-  public.is_super_admin(), public.get_leaderboard() to authenticated;
+  public.is_super_admin(), public.get_leaderboard(), public.crm_count_uitval(),
+  public.crm_summary(), public.recompute_sales() to authenticated, service_role;

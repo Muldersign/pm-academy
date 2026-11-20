@@ -38,6 +38,7 @@ const IC = {
   file: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>',
   paperclip: '<path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  sync: '<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/>',
 };
 const icon = (n, s = 20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || ""}</svg>`;
@@ -192,7 +193,7 @@ const NAV = [
   { v: "lb", label: "Leaderboard", short: "Ranking", ic: "trophy" },
   { v: "mydossier", label: "Mijn dossier", ic: "folder" },
 ];
-const staffNav = () => [{ v: "users", label: "Gebruikers", ic: "users" }, { v: "dossiers", label: "Dossiers", ic: "folder" }, { v: "formats", label: "Gespreksformats", ic: "chat" }].concat(isAdmin() ? [{ v: "content", label: "Inhoud", ic: "layers" }] : []);
+const staffNav = () => [{ v: "users", label: "Gebruikers", ic: "users" }, { v: "dossiers", label: "Dossiers", ic: "folder" }, { v: "formats", label: "Gespreksformats", ic: "chat" }].concat(isAdmin() ? [{ v: "crm", label: "Sales-koppeling", ic: "sync" }, { v: "content", label: "Inhoud", ic: "layers" }] : []);
 const STAFF_ROUTES = ["users", "dossiers", "dossier", "formats"];
 const TABBAR = ["dash", "train", "journey", "lb", "profile"];
 function go(v, extra = {}) {
@@ -204,6 +205,7 @@ function go(v, extra = {}) {
   if (v === "dossier") loadDossier(extra.id);
   if (v === "formats" && !S.templates) loadTemplates().then(() => render());
   if (v === "mydossier") loadMyDossier();
+  if (v === "crm") loadCrm();
 }
 function activeNav() { const v = S.route.v; return v === "topic" || v === "wb" ? "train" : v === "cert" ? "certs" : v === "dossier" ? "dossiers" : v; }
 function renderShell() {
@@ -217,7 +219,7 @@ function renderShell() {
       <button class="me-chip" data-go="profile"><span class="avatar">${esc(initials(myName()))}</span><span class="who"><b>${esc(myName() || "Jouw profiel")}</b><span>${esc(statusOf())}${isStaff() ? " · " + ROLE_LABEL[role()] : ""}</span></span></button>
     </div>`;
   const items = TABBAR.map(v => v === "profile" ? { v, short: "Profiel", ic: "user" } : NAV.find(n => n.v === v));
-  document.getElementById("tabbar").innerHTML = items.map(n => `<button data-go="${n.v}" ${activeNav() === n.v || (n.v === "profile" && ["certs", "cert", "benefits", "users", "content", "dossiers", "dossier", "formats", "mydossier"].includes(S.route.v)) ? 'aria-current="page"' : ""}>${icon(n.ic, 22)}<span>${n.short || n.label}</span></button>`).join("");
+  document.getElementById("tabbar").innerHTML = items.map(n => `<button data-go="${n.v}" ${activeNav() === n.v || (n.v === "profile" && ["certs", "cert", "benefits", "users", "content", "dossiers", "dossier", "formats", "mydossier", "crm"].includes(S.route.v)) ? 'aria-current="page"' : ""}>${icon(n.ic, 22)}<span>${n.short || n.label}</span></button>`).join("");
 }
 function topline(left) {
   return `<div class="topline"><span>${left}</span><span class="row">${S.preview ? '<span class="pill warn">Voorbeeldmodus: alles open</span>' : UNLOCK_ALL ? '<span class="pill warn">Alle modules staan open</span>' : ""}</span></div>
@@ -524,7 +526,7 @@ function vUsers() {
     const d = S.userDraft[u.id] || {}, val = k => d[k] ?? u[k] ?? "", sm = u.summary || {};
     const canRole = isSuper() && u.id !== S.me.id, canDel = !ro && u.id !== S.me.id && u.role !== "super_admin" && (isSuper() || u.role === "user");
     const confirmDel = S.confirm && S.confirm.kind === "deluser" && S.confirm.id === u.id;
-    return `<tr><td><b>${esc(u.display_name || sm.name || "Naam onbekend")}</b><div class="small muted">${esc(u.email || "")}</div></td>
+    return `<tr><td><b>${esc(u.display_name || sm.name || "Naam onbekend")}</b><div class="small muted">${esc(u.email || "")}${u.crm_code ? ` · CRM ${esc(u.crm_code)}` : ""}</div></td>
       <td>${canRole ? `<select class="cell-select" data-user-role="${u.id}">${["user", "management", "admin", "super_admin"].map(r => `<option value="${r}" ${u.role === r ? "selected" : ""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : `<span class="pill ${u.role === "user" ? "" : "brand"}">${ROLE_LABEL[u.role] || u.role}</span>`}</td>
       <td class="small">${esc(sm.status || C.startStatus || "Junior-Ambassadeur")}</td>
       <td><div class="row" style="flex-wrap:nowrap;gap:8px"><div class="bar" style="width:90px"><i style="width:${Math.min(100, sm.pct || 0)}%"></i></div><span class="small tnum">${sm.pct || 0}%</span></div>${sm.current_title ? `<div class="small muted">${esc(sm.current_title)}</div>` : ""}</td>
@@ -538,8 +540,53 @@ function vUsers() {
   const resetConfirm = S.confirm && S.confirm.kind === "monthreset";
   return `${topline("Beheer")}<div class="spread" style="align-items:flex-end"><div class="stack-sm"><span class="eyebrow red">Beheer</span><h1 class="h-page">Gebruikers</h1><p class="lede">${ro ? "Voortgang, sales en dossiers van het team. Als management kun je meekijken en gesprekken toevoegen aan dossiers." : "Voeg verkopers toe, werk dagelijks de sales bij en volg de voortgang."}${isSuper() ? " Als super-admin wijzig je ook rollen." : ""}</p></div>${S.addUser || ro ? "" : `<button class="btn accent" data-user-add>${icon("plus", 16)} Gebruiker toevoegen</button>`}</div>
   ${add}${table}
-  ${ro ? "" : `<div class="row"><button class="btn accent" id="users-save" data-users-save ${draftN ? "" : "disabled"}>${draftN ? `Wijzigingen opslaan (${draftN})` : "Wijzigingen opslaan"}</button><button class="linkbtn" id="users-discard" data-users-discard ${draftN ? "" : "hidden"}>Annuleren</button><span class="small muted">Pas sales of startdatum aan in de tabel en klik op Opslaan.</span>
+  ${ro ? "" : `<div class="row"><button class="btn accent" id="users-save" data-users-save ${draftN ? "" : "disabled"}>${draftN ? `Wijzigingen opslaan (${draftN})` : "Wijzigingen opslaan"}</button><button class="linkbtn" id="users-discard" data-users-discard ${draftN ? "" : "hidden"}>Annuleren</button><span class="small muted">Pas sales of startdatum aan en klik op Opslaan. Medewerkers met een CRM-code worden elke nacht bijgewerkt via de <button class="linkbtn" data-go="crm" style="text-decoration:underline">Sales-koppeling</button>.</span>
   <span style="margin-left:auto">${resetConfirm ? `<span class="confirm"><span class="small">Alle "sales deze maand" op 0 zetten?</span><button class="btn sm" data-month-reset-yes>Ja, nieuwe maand</button><button class="linkbtn" data-confirm-no>Annuleren</button></span>` : `<button class="btn ghost sm" data-month-reset>Nieuwe maand starten</button>`}</span></div>`}`;
+}
+
+/* ---------- Beheer: sales-koppeling met het CRM ---------- */
+async function loadCrm() {
+  if (!isAdmin()) return;
+  try {
+    const [sum, runs, set, users] = await Promise.all([be.crmSummary(), be.crmRuns(), be.crmSettings(), be.listUsers()]);
+    S.crm = Object.assign(S.crm || {}, { sum, runs, set, map: {}, busy: "" }); S.users = users;
+  } catch (e) { S.crm = Object.assign(S.crm || {}, { sum: [], runs: [], set: { countUitval: true }, map: {}, busy: "" }); toast(e.message || "Laden lukte niet"); }
+  if (S.route.v === "crm") render();
+}
+const fmtTime = d => { const x = new Date(d); return `${fmtDate(x)}, ${String(x.getHours()).padStart(2, "0")}:${String(x.getMinutes()).padStart(2, "0")}`; };
+function crmChoice(row) {
+  const m = S.crm.map[row.code]; if (m !== undefined) return m;
+  const u = window.CrmImport.matchUser(row, S.users || []); return u ? u.id : "";
+}
+function vCrm() {
+  if (!isAdmin()) return vDash();
+  const K = S.crm;
+  if (!K || !K.sum) return `${topline("Beheer")}<p class="muted">Laden…</p>`;
+  const users = (S.users || []).slice().sort((a, b) => (a.display_name || a.email).localeCompare(b.display_name || b.email));
+  const last = K.runs[0];
+  const status = last ? `<div class="row"><span class="pill ${last.ok ? "ok" : "go"}">${last.ok ? icon("check", 12) + " Gelukt" : "Mislukt"}</span><span class="small muted">${fmtTime(last.ran_at)} · ${esc(last.source)}</span></div><p class="small" style="margin-top:6px">${esc(last.message || "")}</p>` : `<p class="small muted">Nog niet gesynchroniseerd.</p>`;
+  const linked = K.sum.filter(r => crmChoice(r)).length;
+  const rows = K.sum.map(r => {
+    const sel = crmChoice(r), owner = users.find(u => u.crm_code && u.crm_code.toLowerCase() === String(r.code).toLowerCase());
+    return `<tr><td><b>${esc(r.name || "–")}</b><div class="small muted">${esc(r.code)}</div></td><td class="num">${r.month}</td><td class="num">${r.total}</td><td class="small muted">${r.last ? fmtDate(r.last) : "–"}</td>
+      <td><select class="cell-select" style="min-width:200px" data-crm-map="${esc(r.code)}"><option value="">Niet koppelen</option>${users.map(u => `<option value="${u.id}" ${u.id === sel ? "selected" : ""}>${esc(u.display_name || u.email)}</option>`).join("")}</select>${owner ? "" : sel ? ` <span class="pill warn">Nieuw</span>` : ""}</td></tr>`;
+  }).join("");
+  const without = users.filter(u => !u.crm_code && !K.sum.some(r => crmChoice(r) === u.id));
+  return `${topline("Beheer")}<div class="stack-sm"><span class="eyebrow red">Beheer</span><h1 class="h-page">Sales-koppeling</h1><p class="lede">De sales komen uit het CRM (portal.pmagency.nl). Elke nacht worden de orders van de laatste 7 dagen opgehaald en de sales van gekoppelde medewerkers bijgewerkt.</p></div>
+  <div class="grid-2">
+    <div class="card stack"><div class="spread"><h2 class="h-sec">Automatisch synchroniseren</h2><span class="pill">Elke nacht</span></div>${status}
+      <div class="row"><button class="btn" data-crm-sync ${K.busy ? "disabled" : ""}>${icon("sync", 16)} ${K.busy === "sync" ? "Bezig…" : "Nu synchroniseren"}</button></div>
+      ${K.runs.length > 1 ? `<details><summary class="small muted" style="cursor:pointer">Eerdere synchronisaties</summary><div class="stack-sm" style="margin-top:8px">${K.runs.slice(1).map(x => `<div class="small"><span class="pill ${x.ok ? "ok" : "go"}" style="margin-right:6px">${x.ok ? "Gelukt" : "Mislukt"}</span>${fmtTime(x.ran_at)} · ${esc(x.source)} · ${esc(x.message || "")}</div>`).join("")}</div></details>` : ""}</div>
+    <div class="card stack"><h2 class="h-sec">Export uploaden</h2><p class="small muted">Voor de eerste keer, of als de automatische koppeling niet werkt: exporteer de orders in het CRM (Excel) en upload het bestand hier. Bestaande orders worden bijgewerkt, nooit dubbel geteld.</p>
+      <label class="btn ghost sm" style="align-self:flex-start;cursor:pointer">${icon("dl", 14)} ${K.busy === "upload" ? esc(K.progress || "Bezig…") : "Export kiezen (.xlsx of .csv)"}<input type="file" data-crm-upload accept=".xlsx,.csv,.txt" hidden ${K.busy ? "disabled" : ""}></label>
+      <label class="check"><input type="checkbox" data-crm-uitval ${K.set.countUitval !== false ? "checked" : ""}><span><b>Uitval meetellen.</b> Aan: elke order telt als sale. Uit: alleen netto orders (zonder uitval).</span></label></div>
+  </div>
+  <section class="stack"><div class="sec-head"><h2 class="h-sec">Medewerkers in het CRM</h2><span class="count">${linked}/${K.sum.length} gekoppeld</span></div>
+    ${K.sum.length ? `<p class="small muted">Kies bij elke CRM-medewerker de juiste gebruiker. Waar de naam overeenkomt, staat de keuze al klaar.</p>
+    <div class="table-wrap"><table><thead><tr><th>CRM-medewerker</th><th class="num">Deze maand</th><th class="num">Totaal</th><th>Laatste order</th><th>Gebruiker in de app</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="row"><button class="btn accent" data-crm-save>Koppelingen opslaan en sales bijwerken</button></div>
+    ${without.length ? `<p class="small muted">Nog niet gekoppeld in de app: ${without.map(u => esc(u.display_name || u.email)).join(", ")}.</p>` : ""}`
+    : `<div class="empty">${icon("sync", 24)}<h2 class="h-sec">Nog geen orders.</h2><p class="muted">Upload een export uit het CRM of klik op Nu synchroniseren.</p></div>`}</section>`;
 }
 
 /* ---------- Beheer: inhoud ---------- */
@@ -666,7 +713,7 @@ function render(force) {
   indexC();
   renderShell();
   const v = S.route.v;
-  const views = { dash: vDash, train: vTrain, topic: vTopic, wb: vWorkbook, journey: vJourney, certs: vCerts, cert: vCert, benefits: vBenefits, lb: vLb, profile: vProfile, users: vUsers, dossiers: vDossiers, dossier: vDossier, formats: vFormats, mydossier: vMyDossier, content: vContent };
+  const views = { dash: vDash, train: vTrain, topic: vTopic, wb: vWorkbook, journey: vJourney, certs: vCerts, cert: vCert, benefits: vBenefits, lb: vLb, profile: vProfile, users: vUsers, crm: vCrm, dossiers: vDossiers, dossier: vDossier, formats: vFormats, mydossier: vMyDossier, content: vContent };
   document.getElementById("view").innerHTML = (views[v] || vDash)();
 }
 document.addEventListener("focusout", () => setTimeout(() => { if (pendingRender && !editing()) render(); }, 0));
@@ -688,6 +735,21 @@ document.addEventListener("click", async e => {
   if (d.editTopic) { S.ed = null; openEditor(d.editTopic); return go("content"); }
   if ("confirmNo" in d) { S.confirm = null; return render(true); }
   if (await dossierClick(d)) return;
+  if ("crmSync" in d) {
+    S.crm.busy = "sync"; render(true);
+    try { const r = await be.crmSyncNow(); toast(r.message || "Gesynchroniseerd"); } catch (err) { toast(err.message || "Synchroniseren lukte niet"); }
+    S.crm.busy = ""; await loadCrm(); S.me = await be.me(); return render(true);
+  }
+  if ("crmSave" in d) {
+    const users = S.users || [], want = new Map(S.crm.sum.map(r => [String(r.code).toLowerCase(), { code: r.code, user: crmChoice(r) || null }]));
+    try {
+      // Eerst codes weghalen die naar iemand anders gaan (een code hoort bij één gebruiker), dan de nieuwe zetten.
+      for (const u of users) if (u.crm_code) { const w = want.get(u.crm_code.toLowerCase()); if (w && w.user !== u.id) await be.updateUser(u.id, { crm_code: null }); }
+      for (const w of want.values()) if (w.user) { const u = users.find(x => x.id === w.user); if (!u || !u.crm_code || u.crm_code.toLowerCase() !== w.code.toLowerCase()) await be.updateUser(w.user, { crm_code: w.code }); }
+      const n = await be.crmRecompute(); toast(`Koppelingen opgeslagen. Sales bijgewerkt voor ${n} ${n === 1 ? "gebruiker" : "gebruikers"}.`);
+    } catch (err) { toast(err.message || "Opslaan lukte niet"); }
+    await loadCrm(); S.me = await be.me(); return render(true);
+  }
 
   // Profiel
   if ("saveProfile" in d) {
@@ -823,6 +885,25 @@ document.addEventListener("change", async e => {
     return;
   }
   if (await dossierChange(el, d)) return;
+  if (d.crmMap !== undefined) { S.crm.map[d.crmMap] = el.value; return; }
+  if ("crmUitval" in d) {
+    try { S.crm.set = Object.assign({}, S.crm.set, { countUitval: el.checked }); await be.crmSaveSettings(S.crm.set); const n = await be.crmRecompute(); toast(el.checked ? "Uitval telt mee" : "Alleen netto orders tellen"); } catch (err) { toast(err.message || "Opslaan lukte niet"); }
+    await loadCrm(); S.me = await be.me(); return render(true);
+  }
+  if ("crmUpload" in d && el.files && el.files[0]) {
+    const file = el.files[0]; S.crm.busy = "upload"; S.crm.progress = "Bestand lezen…"; render(true);
+    try {
+      if (!window.fflate) throw new Error("De Excel-lezer kon niet worden geladen. Controleer je internetverbinding.");
+      const { orders, skipped } = window.CrmImport.parseOrders(new Uint8Array(await file.arrayBuffer()), window.fflate);
+      if (!orders.length) throw new Error("Geen orders met een medewerker gevonden in dit bestand.");
+      await be.crmUpsertOrders(orders, (a, b) => { S.crm.progress = `Opslaan… ${a} van ${b}`; render(true); });
+      const n = await be.crmRecompute();
+      const msg = `${orders.length} orders uit ${file.name} verwerkt${skipped ? `, ${skipped} zonder medewerker overgeslagen` : ""}.`;
+      await be.crmLogRun({ source: "upload", ok: true, orders: orders.length, updated_users: Number(n) || 0, message: msg });
+      toast(msg);
+    } catch (err) { toast(err.message || "Uploaden lukte niet"); }
+    S.crm.busy = ""; S.crm.progress = ""; await loadCrm(); S.me = await be.me(); return render(true);
+  }
   if (el.id === "p-preview") { S.preview = el.checked; S.quiz = null; toast(el.checked ? "Voorbeeldmodus aan" : "Voorbeeldmodus uit"); return render(true); }
   if (d.userRole) {
     try { await be.updateUser(d.userRole, { role: el.value }); toast("Rol gewijzigd"); await loadUsers(); } catch (err) { toast(err.message || "Rol wijzigen lukte niet"); await loadUsers(); }
@@ -927,7 +1008,7 @@ async function start() {
   P = Object.assign(blankProgress(), prog || {});
   if (cur && cur.data && Array.isArray(cur.data.tracks)) { C = cur.data; S.cMeta = cur.updated_at; } else S.cMeta = null;
   S.benefits = (ben && ben.data) || { items: [] };
-  if (S.route.v === "login" || (S.route.v === "content" && !isAdmin()) || (STAFF_ROUTES.includes(S.route.v) && !isStaff())) S.route = { v: "dash" };
+  if (S.route.v === "login" || (["content", "crm"].includes(S.route.v) && !isAdmin()) || (STAFF_ROUTES.includes(S.route.v) && !isStaff())) S.route = { v: "dash" };
   setSaveState(be.mode === "demo" ? "Demo · opgeslagen in deze browser" : "");
   render(true);
   if (S.route.v === "lb") loadLb();
@@ -935,6 +1016,7 @@ async function start() {
   if (S.route.v === "dossiers") loadDossiers();
   if (S.route.v === "dossier") loadDossier(S.route.id);
   if (S.route.v === "mydossier") loadMyDossier();
+  if (S.route.v === "crm") loadCrm();
   if (isStaff()) loadTemplates();
   if (!prog) save();
 }

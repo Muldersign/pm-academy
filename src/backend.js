@@ -88,6 +88,25 @@ function liveBackend(cfg) {
     async uploadFile(path, file) { ok(await sb.storage.from("dossier").upload(path, file, { upsert: false, contentType: file.type || undefined })); return { path, name: file.name, size: file.size, type: file.type }; },
     async fileUrl(path) { return ok(await sb.storage.from("dossier").createSignedUrl(path, 600)).signedUrl; },
     async removeFile(path) { await sb.storage.from("dossier").remove([path]); },
+    // Sales uit het CRM
+    async crmUpsertOrders(orders, onProgress) {
+      const t = now(), iso = window.CrmImport.isoDate;
+      const rows = orders.map(o => ({ id: o.id, code: o.code, name: o.name, order_date: iso(o.date), uitval: o.uitval, sales: o.sales, netto: o.netto, synced_at: t }));
+      for (let i = 0; i < rows.length; i += 500) { ok(await sb.from("crm_orders").upsert(rows.slice(i, i + 500), { onConflict: "id" })); if (onProgress) onProgress(Math.min(rows.length, i + 500), rows.length); }
+    },
+    async crmSummary() { return (ok(await sb.rpc("crm_summary")) || []).map(r => ({ code: r.code, name: r.name, total: Number(r.total), month: Number(r.month), last: r.last_order, orders: Number(r.orders) })); },
+    async crmRecompute() { return ok(await sb.rpc("recompute_sales")); },
+    async crmRuns() { return ok(await sb.from("sync_runs").select("*").order("ran_at", { ascending: false }).limit(8)) || []; },
+    async crmLogRun(run) { ok(await sb.from("sync_runs").insert(run)); },
+    async crmSettings() { const d = ok(await sb.from("staff_content").select("data").eq("key", "crm_settings").maybeSingle()); return Object.assign({ countUitval: true }, d ? d.data : {}); },
+    async crmSaveSettings(data) { ok(await sb.from("staff_content").upsert({ key: "crm_settings", data, updated_at: now(), updated_by: uid })); },
+    async crmSyncNow() {
+      const { data } = await sb.auth.getSession();
+      const res = await fetch("/api/sync-sales", { method: "POST", headers: { Authorization: "Bearer " + (data.session?.access_token || "") } });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || "Synchroniseren lukte niet (" + res.status + ")");
+      return out;
+    },
   };
 }
 
@@ -139,6 +158,7 @@ function demoBackend() {
   try { demoRole = localStorage.getItem(ROLE_KEY); } catch {}
   if (demoRole) me().role = demoRole;
   const clone = x => JSON.parse(JSON.stringify(x));
+  let crmOrders = null;
   const isAdmin = () => ["admin", "super_admin"].includes(me().role);
   const isStaff = () => isAdmin() || me().role === "management";
   const staffOnly = () => { if (!isStaff()) throw new Error("Alleen management en beheer"); };
@@ -164,6 +184,7 @@ function demoBackend() {
       const u = db.users.find(x => x.id === id); if (!u) throw new Error("Onbekende gebruiker");
       if (!isAdmin()) throw new Error("Alleen beheerders kunnen gebruikers wijzigen");
       if ("role" in patch && me().role !== "super_admin") throw new Error("Alleen de super-admin kan rollen wijzigen");
+      if (patch.crm_code && db.users.some(x => x.id !== id && x.crm_code && x.crm_code.toLowerCase() === patch.crm_code.toLowerCase())) throw new Error("Deze CRM-code hoort al bij een andere gebruiker");
       Object.assign(u, patch); persist();
     },
     async createUser({ email, name, role, start_date }) {
@@ -200,5 +221,19 @@ function demoBackend() {
     },
     async fileUrl(path) { const u = db.dossier.files[path]; if (!u) throw new Error("Dit bestand bestaat niet (meer)"); return u; },
     async removeFile(path) { delete db.dossier.files[path]; persist(); },
+    // Sales uit het CRM (demo: alles in deze browser; orders niet bewaard om de opslag klein te houden)
+    async crmUpsertOrders(orders) { if (!isAdmin()) throw new Error("Alleen beheerders"); db.crm ||= { runs: [], settings: { countUitval: true } }; crmOrders = new Map((crmOrders ? [...crmOrders] : []).concat(orders.map(o => [o.id, o]))); },
+    async crmSummary() { if (!crmOrders) return []; const a = window.CrmImport.aggregate([...crmOrders.values()], { countUitval: (db.crm || {}).settings?.countUitval !== false }); return a.rows.map(r => ({ code: r.code, name: r.name, total: r.total, month: r.month, last: r.last ? window.CrmImport.isoDate(r.last) : null })); },
+    async crmRecompute() {
+      if (!isAdmin()) throw new Error("Alleen beheerders");
+      const sum = await this.crmSummary(), by = new Map(sum.map(r => [String(r.code).toLowerCase(), r])); let n = 0;
+      for (const u of db.users) if (u.crm_code) { const r = by.get(u.crm_code.toLowerCase()); u.sales_total = r ? r.total : 0; u.sales_month = r ? r.month : 0; n++; }
+      persist(); return n;
+    },
+    async crmRuns() { return clone((db.crm || {}).runs || []); },
+    async crmLogRun(run) { db.crm ||= { runs: [], settings: { countUitval: true } }; db.crm.runs.unshift(Object.assign({ ran_at: now() }, run)); db.crm.runs = db.crm.runs.slice(0, 8); persist(); },
+    async crmSettings() { return Object.assign({ countUitval: true }, (db.crm || {}).settings || {}); },
+    async crmSaveSettings(data) { db.crm ||= { runs: [], settings: {} }; db.crm.settings = clone(data); persist(); },
+    async crmSyncNow() { throw new Error("Automatisch synchroniseren werkt alleen op de live site, niet in de demo."); },
   };
 }
