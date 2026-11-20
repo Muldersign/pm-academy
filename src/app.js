@@ -185,7 +185,7 @@ function toast(t) { const el = document.getElementById("toast"); el.textContent 
 /* ---------- Navigatie ---------- */
 const NAV = [
   { v: "dash", label: "Dashboard", short: "Home", ic: "home" },
-  { v: "train", label: "Trainingen", short: "Training", ic: "book" },
+  { v: "train", label: "Academy", short: "Academy", ic: "book" },
   { v: "journey", label: "PM Journey", short: "Journey", ic: "route" },
   { v: "certs", label: "Certificaten", ic: "award" },
   { v: "benefits", label: "PM Benefits", ic: "gift" },
@@ -298,8 +298,8 @@ function trackBlock(tr) {
 }
 function vTrain() {
   const trainings = TR.filter(t => (t.kind || "training") === "training"), deep = TR.filter(t => t.kind === "verdieping");
-  return `${topline("Trainingen")}
-  <div class="spread" style="align-items:flex-end"><div class="stack-sm"><h1 class="h-page">Trainingen</h1><p class="lede">Elk onderwerp heeft een video, een workbook en een quiz. Haal minimaal ${passMark()}% om het volgende onderwerp te openen.</p></div><div class="row"><button class="btn ghost" data-go="wb">${icon("clip", 16)} Mijn workbook</button>${isAdmin() ? `<button class="btn ghost" data-go="content">${icon("edit", 16)} Bewerken</button>` : ""}</div></div>
+  return `${topline("Academy")}
+  <div class="spread" style="align-items:flex-end"><div class="stack-sm"><h1 class="h-page">Academy</h1><p class="lede">Elk onderwerp heeft een video, een workbook en een quiz. Haal minimaal ${passMark()}% om het volgende onderwerp te openen.</p></div><div class="row"><button class="btn ghost" data-go="wb">${icon("clip", 16)} Mijn workbook</button>${isAdmin() ? `<button class="btn ghost" data-go="content">${icon("edit", 16)} Bewerken</button>` : ""}</div></div>
   ${trainings.map(trackBlock).join("") || (deep.length ? "" : `<div class="empty"><h2 class="h-sec">Nog geen trainingen.</h2></div>`)}
   ${deep.length ? `<div class="sec-head" style="margin-top:12px"><h2 class="h-sec">Verdieping</h2><span class="count">${deep.length} ${deep.length === 1 ? "module" : "modules"}</span></div>${deep.map(trackBlock).join("")}` : ""}`;
 }
@@ -326,7 +326,7 @@ function embedOf(url) {
 function vTopic() {
   const t = TOP.get(S.route.id); if (!t) return vTrain();
   const m = MOD_OF.get(t), tr = TRK_OF.get(m);
-  if (!topicOpen(t)) return `${topline(esc(m.code))}<button class="linkbtn" data-go="train">${icon("left", 16)} Trainingen</button><div class="empty"><span class="pill lock">${icon("lock", 12)} Op slot</span><h2 class="h-sec">${esc(t.title)}</h2><p class="muted">${esc(modStatus(m).open ? `Rond eerst het vorige onderwerp af met ${passMark()}% of meer.` : modStatus(m).reason)}</p></div>`;
+  if (!topicOpen(t)) return `${topline(esc(m.code))}<button class="linkbtn" data-go="train">${icon("left", 16)} Academy</button><div class="empty"><span class="pill lock">${icon("lock", 12)} Op slot</span><h2 class="h-sec">${esc(t.title)}</h2><p class="muted">${esc(modStatus(m).open ? `Rond eerst het vorige onderwerp af met ${passMark()}% of meer.` : modStatus(m).reason)}</p></div>`;
   const st = P.topics[t.id] || {}, ok = passed(t.id);
   const hasVideo = !!(t.video || t.core || (t.points || []).length), hasWb = t.workbook.length > 0, hasQuiz = t.quiz.length > 0;
   const tabs = [["video", "Video", "video", hasVideo, !!st.seen], ["workbook", "Workbook", "clip", hasWb, wbDone(t)], ["quiz", hasQuiz ? "Quiz" : "Afronden", hasQuiz ? "quiz" : "check", true, ok]].filter(x => x[3]);
@@ -334,7 +334,7 @@ function vTopic() {
   const body = S.tab === "video" ? tVideo(t, st) : S.tab === "workbook" ? tWorkbook(t) : tQuiz(t);
   const i = ALL.indexOf(t), prev = ALL[i - 1], nxt = ALL[i + 1];
   return `${topline(`${esc(tr.code)} · ${esc(m.title)}`)}
-  <div class="spread"><button class="linkbtn" data-go="train">${icon("left", 16)} Trainingen</button>${isAdmin() ? `<button class="btn ghost sm" data-edit-topic="${t.id}">${icon("edit", 14)} Bewerk dit onderwerp</button>` : ""}</div>
+  <div class="spread"><button class="linkbtn" data-go="train">${icon("left", 16)} Academy</button>${isAdmin() ? `<button class="btn ghost sm" data-edit-topic="${t.id}">${icon("edit", 14)} Bewerk dit onderwerp</button>` : ""}</div>
   <div class="stack-sm"><span class="eyebrow red">${esc(m.code)} · Onderwerp ${topicNo(t)} van ${m.topics.length}</span><div class="spread"><h1 class="h-page">${esc(t.title)}</h1>${ok ? `<span class="pill ok">${icon("check", 13)} Afgerond${st.best ? " · " + st.best + "%" : ""}</span>` : ""}</div></div>
   <div class="tabs" role="tablist">${tabs.map(([k, l, ic, , done]) => `<button role="tab" data-tab="${k}" aria-selected="${S.tab === k}">${icon(ic, 16)}${l}${done ? `<span class="tick">${icon("check", 14)}</span>` : ""}</button>`).join("")}</div>
   ${body}
@@ -419,7 +419,7 @@ function vWorkbook() {
     return `<details class="module"><summary><span class="code">${esc(MOD_OF.get(t).code)}</span><div><h3>${esc(t.title)}</h3><div class="sub tnum">${f}/${t.workbook.length} vragen beantwoord</div></div>${passed(t.id) ? `<span class="pill ok">${icon("check", 13)} Afgerond</span>` : `<span class="pill">Bezig</span>`}<span class="chev">${icon("chev", 18)}</span></summary>
       <div class="topic-list" style="padding:20px;display:flex;flex-direction:column;gap:18px">${t.workbook.map((q, i) => `<div class="stack-sm" style="gap:4px"><b>${esc(q)}</b><p class="muted" style="white-space:pre-wrap">${esc(ans[i] || "Nog niet ingevuld")}</p></div>`).join("")}<div><button class="btn ghost sm" data-topic="${t.id}" data-tab-go="workbook">${icon("edit", 14)} Antwoorden aanpassen</button></div></div></details>`;
   }).join("") : `<div class="empty">${icon("clip", 24)}<h2 class="h-sec">Nog geen antwoorden.</h2><p class="muted">Je antwoorden verschijnen hier zodra je je eerste workbook invult.</p>${ALL.length ? `<button class="btn" data-topic="${(nextTopic() || ALL[0]).id}">Begin met leren</button>` : ""}</div>`;
-  return `${topline("Mijn workbook")}<button class="linkbtn" data-go="train">${icon("left", 16)} Trainingen</button>
+  return `${topline("Mijn workbook")}<button class="linkbtn" data-go="train">${icon("left", 16)} Academy</button>
   <div class="stack-sm"><h1 class="h-page">Mijn workbook</h1><p class="lede">Alle antwoorden die je hebt gegeven: ${filled} van ${total} ingevuld.</p></div><div class="stack" style="gap:12px">${list}</div>`;
 }
 
@@ -579,7 +579,7 @@ function formHtml() {
     <div class="grid-2">${fld("Slaagpercentage quiz (%)", inp("passMark", N.passMark ?? 80, "80", "number"), "Geldt voor alle quizzen.")}${fld("Startstatus nieuwe gebruikers", inp("startStatus", N.startStatus ?? "Junior-Ambassadeur", "Junior-Ambassadeur"), "De status die iedereen bij de start heeft.")}</div></div>`;
   if (f.kind === "track") return `<div class="card form-card"><div class="spread"><div class="stack-sm"><span class="eyebrow">Module</span><h2 class="h-sec">${esc(N.code)} ${esc(N.title)}</h2></div>${tools}</div>
     <div class="grid-2">${fld("Code", inp("code", N.code, "TRM 3"), "Korte naam, bijvoorbeeld TRM 3 of Verdieping 1.")}${fld("Naam", inp("title", N.title, "Closing en klantrelatie"))}
-    ${fld("Specificatie", `<select data-ef="kind"><option value="training" ${N.kind !== "verdieping" ? "selected" : ""}>Training</option><option value="verdieping" ${N.kind === "verdieping" ? "selected" : ""}>Verdieping</option></select>`, "Verdiepingen staan apart onder Trainingen.")}
+    ${fld("Specificatie", `<select data-ef="kind"><option value="training" ${N.kind !== "verdieping" ? "selected" : ""}>Training</option><option value="verdieping" ${N.kind === "verdieping" ? "selected" : ""}>Verdieping</option></select>`, "Verdiepingen staan apart onder Academy.")}
     ${fld("Nieuwe status na afronden", inp("statusOnComplete", N.statusOnComplete, "Bijv. Ambassadeur"), "Leeg laten als de status niet verandert.")}</div>
     ${fld("Korte omschrijving", inp("sub", N.sub, "Waar gaat deze module over?"))}
     <label class="check"><input type="checkbox" data-ef="certificate" data-type="bool" ${N.certificate ? "checked" : ""}><span><b>Certificaat</b> bij afronden van deze module</span></label>
