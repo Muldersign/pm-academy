@@ -720,7 +720,7 @@ window.PM_DEFAULT_CURRICULUM = {
      "title": "Tegenwerpingen",
      "unlock": {
       "prev": true,
-      "workdays": 4
+      "sales": 25
      },
      "topics": [
       {
