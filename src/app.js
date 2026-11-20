@@ -315,6 +315,10 @@ function embedOf(url) {
     if (h.endsWith("youtube.com")) { const v = u.searchParams.get("v") || (/^\/(embed|shorts)\//.test(u.pathname) ? u.pathname.split("/")[2] : ""); if (v) return { src: "https://www.youtube-nocookie.com/embed/" + v + YT }; }
     if (h === "vimeo.com") { const id = u.pathname.split("/").filter(Boolean)[0]; if (/^\d+$/.test(id)) return { src: "https://player.vimeo.com/video/" + id }; }
     if (h === "player.vimeo.com") return { src: url };
+    // Google Drive: bestand gedeeld als "iedereen met de link"
+    if (h === "drive.google.com") { const m = u.pathname.match(/\/file\/d\/([^/]+)/) || [null, u.searchParams.get("id")]; if (m[1]) return { src: "https://drive.google.com/file/d/" + m[1] + "/preview" }; }
+    // Bunny Stream (iframe.mediadelivery.net / player.mediadelivery.net)
+    if (h === "iframe.mediadelivery.net" || h === "player.mediadelivery.net") { const parts = u.pathname.split("/").filter(Boolean); if (parts.length >= 3) return { src: "https://iframe.mediadelivery.net/embed/" + parts[1] + "/" + parts[2] + "?autoplay=false&preload=true&responsive=true" }; }
     if (/\.(mp4|webm|mov)$/i.test(u.pathname)) return { file: url };
   } catch {}
   return null;
@@ -596,7 +600,7 @@ function formHtml() {
   const quiz = `<div class="stack-sm"><span class="eyebrow">Quizvragen</span><p class="small muted">Kies per vraag het juiste antwoord met het rondje. De volgorde van de antwoorden wordt per poging geschud.</p>${N.quiz.map((q, i) => `<div class="qedit"><div class="spread"><b>Vraag ${i + 1}</b><button class="iconbtn" data-eq-del="${i}" aria-label="Vraag verwijderen">${icon("trash", 14)}</button></div><input type="text" data-eq="${i}" value="${esc(q.q)}" placeholder="De vraag">${q.options.map((o, j) => `<div class="optrow"><input type="radio" name="ans-${i}" data-ea="${i}:${j}" ${q.answer === j ? "checked" : ""} aria-label="Juiste antwoord"><input type="text" data-eo="${i}:${j}" value="${esc(o)}" placeholder="Antwoord ${j + 1}"><button class="iconbtn" data-eo-del="${i}:${j}" aria-label="Antwoord verwijderen" ${q.options.length <= 2 ? "disabled" : ""}>${icon("trash", 14)}</button></div>`).join("")}<div><button class="linkbtn" data-eo-add="${i}">${icon("plus", 14)} Antwoord</button></div></div>`).join("")}<div><button class="btn ghost sm" data-eq-add>${icon("plus", 14)} Vraag toevoegen</button></div></div>`;
   return `<div class="card form-card"><div class="spread"><div class="stack-sm"><span class="eyebrow">Onderwerp in ${esc(f.module.code)}</span><h2 class="h-sec">${esc(N.title || "Naamloos onderwerp")}</h2></div>${tools}</div>
     ${fld("Titel", inp("title", N.title, "Titel van het onderwerp"))}
-    ${fld("Video", inp("video", N.video, "https://www.loom.com/share/…", "url"), "Plak een link van Loom, YouTube of Vimeo, of een directe link naar een mp4. De video wordt in de pagina getoond.")}
+    ${fld("Video", inp("video", N.video, "https://www.loom.com/share/…", "url"), "Plak een link van Vimeo, Loom, YouTube, Google Drive of Bunny Stream, of een directe link naar een mp4. De video wordt in de pagina getoond.")}
     ${fld("Uitleg", `<textarea data-ef="core" style="min-height:130px" placeholder="De kern van dit onderwerp">${esc(N.core)}</textarea>`)}
     ${arr("points", "Kernpunten", "Een kernpunt")}
     ${arr("workbook", "Workbookvragen", "Een open vraag voor het workbook")}
