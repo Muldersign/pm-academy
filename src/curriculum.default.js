@@ -1780,7 +1780,7 @@ window.PM_DEFAULT_CURRICULUM = {
       {
        "id": "t2-2-1",
        "title": "Robert Cialdini",
-       "video": "",
+       "video": "https://www.youtube.com/watch?v=cDREln_LrME",
        "core": "Robert Cialdini is een Amerikaanse psycholoog die onderzocht waarom mensen ja zeggen. In zijn boek Influence (1984) beschreef hij zes principes van overtuigen. In Pre-Suasion (2016) voegde hij een zevende toe: eenheid.",
        "points": [
         "De principes werken omdat ons brein snelle vuistregels gebruikt.",

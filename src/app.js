@@ -71,6 +71,9 @@ const KIND_LABEL = { training: "Training", verdieping: "Verdieping" };
 /* ---------- State ---------- */
 const CFG = window.PM_CONFIG || {};
 const be = window.createBackend(CFG);
+// UNLOCK_ALL: alle modules en onderwerpen tijdelijk open (instelling UNLOCK_ALL). Openingsregels blijven bewaard.
+const UNLOCK_ALL = !!CFG.unlockAll;
+const allOpen = () => S.preview || UNLOCK_ALL;
 const blankProgress = () => ({ topics: {}, activity: [] });
 let P = blankProgress();
 let C = clone(window.PM_DEFAULT_CURRICULUM);
@@ -119,7 +122,7 @@ const topicNo = t => MOD_OF.get(t).topics.indexOf(t) + 1;
 
 function lock(reason, short, extra) { return Object.assign({ open: false, reason, short }, extra || {}); }
 function modStatus(m) {
-  if (S.preview) return { open: true };
+  if (allOpen()) return { open: true };
   const u = m.unlock || {}, i = MODS.indexOf(m), prev = i > 0 ? MODS[i - 1] : null;
   if (u.prev && prev && prev.topics.length && !modDone(prev)) return lock(`Rond eerst ${prev.code || prev.title} af`, `Na ${prev.code || "vorige"}`);
   if (u.workdays) {
@@ -146,7 +149,7 @@ function unlockText(m) {
 function topicOpen(t) {
   const m = MOD_OF.get(t);
   if (!m || !modStatus(m).open) return false;
-  if (S.preview) return true;
+  if (allOpen()) return true;
   const i = m.topics.indexOf(t);
   return i === 0 || passed(m.topics[i - 1].id);
 }
@@ -217,7 +220,7 @@ function renderShell() {
   document.getElementById("tabbar").innerHTML = items.map(n => `<button data-go="${n.v}" ${activeNav() === n.v || (n.v === "profile" && ["certs", "cert", "benefits", "users", "content", "dossiers", "dossier", "formats", "mydossier"].includes(S.route.v)) ? 'aria-current="page"' : ""}>${icon(n.ic, 22)}<span>${n.short || n.label}</span></button>`).join("");
 }
 function topline(left) {
-  return `<div class="topline"><span>${left}</span><span class="row">${S.preview ? '<span class="pill warn">Voorbeeldmodus: alles open</span>' : ""}</span></div>
+  return `<div class="topline"><span>${left}</span><span class="row">${S.preview ? '<span class="pill warn">Voorbeeldmodus: alles open</span>' : UNLOCK_ALL ? '<span class="pill warn">Alle modules staan open</span>' : ""}</span></div>
   <div class="mobile-top"><img src="/brand/wordmark-cream.png" alt="PM Agency"><button class="iconbtn" data-go="profile" aria-label="Profiel">${icon("user", 18)}</button></div>
   ${be.mode === "demo" ? `<div class="demo-bar">${icon("info", 16)}<span><b>Demoversie.</b> Er is nog geen database gekoppeld; alles wordt in deze browser bewaard.</span></div>` : ""}`;
 }
@@ -334,7 +337,8 @@ function vTopic() {
 function tVideo(t, st) {
   const e = t.video ? embedOf(t.video) : null;
   let v;
-  if (e && e.src) v = `<iframe src="${esc(e.src)}" title="${esc(t.title)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen loading="lazy"></iframe>`;
+  if (e && e.src && CFG.noEmbed) v = `<div class="stripes"></div><div class="vt"><small>${esc(MOD_OF.get(t).code)}</small>${esc(t.title)}</div><a class="play" href="${esc(t.video)}" target="_blank" rel="noopener" aria-label="Video openen">${icon("play", 34)}</a><div class="vfoot" style="position:absolute;left:24px;bottom:18px;font-size:13px;opacity:.75">De video opent in een nieuw tabblad</div>`;
+  else if (e && e.src) v = `<iframe src="${esc(e.src)}" title="${esc(t.title)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen loading="lazy"></iframe>`;
   else if (e && e.file) v = `<video src="${esc(e.file)}" controls playsinline style="position:absolute;inset:0;width:100%;height:100%;background:#000"></video>`;
   else if (t.video) v = `<div class="stripes"></div><div class="vt"><small>${esc(MOD_OF.get(t).code)}</small>${esc(t.title)}</div><a class="play" href="${esc(t.video)}" target="_blank" rel="noopener" aria-label="Video openen">${icon("play", 34)}</a>`;
   else v = `<div class="stripes"></div><div class="vt"><small>${esc(MOD_OF.get(t).code)}</small>${esc(t.title)}</div><div class="none">${icon("video", 28)}<p style="margin-top:8px">De video voor dit onderwerp volgt.</p></div>`;
@@ -358,7 +362,7 @@ function startQuiz(t) {
   S.quiz = { id: t.id, order, answers: {}, result: null };
 }
 function tQuiz(t) {
-  if (!wbDone(t) && !S.preview) return `<div class="empty"><span class="pill lock">${icon("lock", 12)} Op slot</span><h2 class="h-sec">Maak eerst het workbook af.</h2><p class="muted">Vul alle ${t.workbook.length} workbookvragen in.</p><button class="btn" data-tab="workbook">Naar het workbook</button></div>`;
+  if (!wbDone(t) && !allOpen()) return `<div class="empty"><span class="pill lock">${icon("lock", 12)} Op slot</span><h2 class="h-sec">Maak eerst het workbook af.</h2><p class="muted">Vul alle ${t.workbook.length} workbookvragen in.</p><button class="btn" data-tab="workbook">Naar het workbook</button></div>`;
   const i = ALL.indexOf(t), nxt = ALL[i + 1];
   if (!t.quiz.length) {
     if (passed(t.id)) return `<div class="card stack-sm"><h2 class="h-sec">Dit onderwerp is afgerond.</h2>${nxt && topicOpen(nxt) ? `<div><button class="btn accent arrow" data-topic="${nxt.id}" data-tab-go="video"><span class="dot">${icon("right", 16)}</span>${esc(nxt.title)}</button></div>` : ""}</div>`;

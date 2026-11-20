@@ -62,6 +62,7 @@ Zonder Supabase-gegevens draait de app als **demo**: alles werkt, en alles wordt
    | `SUPABASE_URL` | Project URL |
    | `SUPABASE_ANON_KEY` | anon public key |
    | `SUPABASE_SERVICE_ROLE_KEY` | service_role key (geheim, alleen hier) |
+   | `UNLOCK_ALL` | optioneel: `true` zet alle modules tijdelijk open |
 
 3. Klik **Deploy**.
 

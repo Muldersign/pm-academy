@@ -18,7 +18,7 @@ const safeScript = s => s.replace(/<\/script/gi, "<\\/script");
 
 const app = read("src/app.js").replace(/if \("serviceWorker" in navigator[^\n]*\n/, "");
 const scripts = [
-  "window.PM_CONFIG = {};",
+  "window.PM_CONFIG = { unlockAll: true, noEmbed: true };",
   read("src/curriculum.default.js"),
   read("src/backend.js"),
   read("src/dossier.js"),

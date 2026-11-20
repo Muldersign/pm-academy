@@ -22,6 +22,7 @@ const config = {
   supabaseUrl: process.env.SUPABASE_URL || "",
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
   allowSignup: /^(1|true|ja)$/i.test(process.env.ALLOW_SIGNUP || ""),
+  unlockAll: /^(1|true|ja)$/i.test(process.env.UNLOCK_ALL || ""),
 };
 writeFileSync(join(out, "config.js"), `window.PM_CONFIG = ${JSON.stringify(config, null, 2)};\n`);
 console.log(`dist/ gebouwd (versie ${version}) · database: ${config.supabaseUrl ? "gekoppeld" : "niet gekoppeld, demomodus"}`);
