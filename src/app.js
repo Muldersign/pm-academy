@@ -305,12 +305,14 @@ function vTrain() {
 }
 
 /* ---------- Onderwerp ---------- */
+// Rustige YouTube-inbedding: geen gerelateerde video's van andere kanalen, afspelen in de pagina.
+const YT = "?rel=0&modestbranding=1&playsinline=1&iv_load_policy=3";
 function embedOf(url) {
   try {
     const u = new URL(url), h = u.hostname.replace(/^www\./, "");
     if (h === "loom.com") return { src: "https://www.loom.com/embed/" + u.pathname.split("/").filter(Boolean).pop() };
-    if (h === "youtu.be") return { src: "https://www.youtube-nocookie.com/embed/" + u.pathname.slice(1) };
-    if (h.endsWith("youtube.com")) { const v = u.searchParams.get("v") || (/^\/(embed|shorts)\//.test(u.pathname) ? u.pathname.split("/")[2] : ""); if (v) return { src: "https://www.youtube-nocookie.com/embed/" + v }; }
+    if (h === "youtu.be") return { src: "https://www.youtube-nocookie.com/embed/" + u.pathname.slice(1) + YT };
+    if (h.endsWith("youtube.com")) { const v = u.searchParams.get("v") || (/^\/(embed|shorts)\//.test(u.pathname) ? u.pathname.split("/")[2] : ""); if (v) return { src: "https://www.youtube-nocookie.com/embed/" + v + YT }; }
     if (h === "vimeo.com") { const id = u.pathname.split("/").filter(Boolean)[0]; if (/^\d+$/.test(id)) return { src: "https://player.vimeo.com/video/" + id }; }
     if (h === "player.vimeo.com") return { src: url };
     if (/\.(mp4|webm|mov)$/i.test(u.pathname)) return { file: url };
