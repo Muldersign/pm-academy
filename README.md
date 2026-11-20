@@ -1,4 +1,4 @@
-# PM Agency Academy
+# PM Agency
 
 De trainingsomgeving van PM Agency, in de huisstijl van PM Agency.
 
@@ -45,7 +45,7 @@ Zonder Supabase-gegevens draait de app als **demo**: alles werkt, en alles wordt
 3. **Authentication → Sign In / Providers → Email**: zet **Allow new users to sign up** uit. Alleen mensen die een beheerder toevoegt, kunnen dan inloggen.
 4. **Authentication → Emails → Magic Link**: zet de code in de mail, bijvoorbeeld:
    ```html
-   <h2>Je inlogcode voor PM Agency Academy</h2>
+   <h2>Je inlogcode voor PM Agency</h2>
    <p style="font-size:28px;font-weight:700;letter-spacing:4px">{{ .Token }}</p>
    <p>De code is 1 uur geldig.</p>
    ```
@@ -68,7 +68,7 @@ Zonder Supabase-gegevens draait de app als **demo**: alles werkt, en alles wordt
 
 ### 3. Eigen domein
 
-1. In Vercel: **Settings → Domains**, voeg bijvoorbeeld `academy.pmagency.nl` toe en zet het DNS-record dat Vercel toont bij je domeinprovider.
+1. In Vercel: **Settings → Domains**, voeg bijvoorbeeld `dashboard.pmagency.nl` toe en zet het DNS-record dat Vercel toont bij je domeinprovider.
 2. In Supabase: **Authentication → URL Configuration**, zet de **Site URL** op dat adres.
 
 ### 4. Eerste super-admin

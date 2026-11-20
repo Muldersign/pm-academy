@@ -1,4 +1,4 @@
-/* PM Agency Academy */
+/* PM Agency */
 "use strict";
 
 /* ---------- Iconen ---------- */
@@ -209,7 +209,7 @@ function activeNav() { const v = S.route.v; return v === "topic" || v === "wb" ?
 function renderShell() {
   const navBtn = n => `<button data-go="${n.v}" ${activeNav() === n.v ? 'aria-current="page"' : ""}>${icon(n.ic)}<span>${n.label}</span>${n.v === "certs" ? `<span class="badge">${certCount()}/${certTracks().length}</span>` : ""}</button>`;
   document.getElementById("side").innerHTML = `
-    <div class="side-brand"><img class="wm" src="/brand/wordmark-cream.png" alt="PM Agency"><small>Academy</small></div>
+    <div class="side-brand"><img class="wm" src="/brand/wordmark-cream.png" alt="PM Agency"></div>
     <nav class="nav" aria-label="Hoofdmenu"><div class="nav-label">Menu</div>${NAV.map(navBtn).join("")}</nav>
     ${isStaff() ? `<nav class="nav" aria-label="Beheer"><div class="nav-label">Beheer</div>${staffNav().map(navBtn).join("")}</nav>` : ""}
     <div class="side-foot">
@@ -229,7 +229,7 @@ function topline(left) {
 function vDash() {
   const o = overall(), nt = nextTopic(), st = streak(), s = sales(), li = levelIdx(s), lv = LEVELS[li], nx = LEVELS[li + 1];
   let hero;
-  if (!ALL.length) hero = `<div class="hero"><div><div class="eyebrow">Academy</div><h2>Er staan nog geen trainingen klaar.</h2><p>${isAdmin() ? "Maak je eerste module aan onder Beheer → Inhoud." : "Je beheerder voegt binnenkort de trainingen toe."}</p></div>${isAdmin() ? `<button class="btn accent arrow" data-go="content"><span class="dot">${icon("plus", 16)}</span>Inhoud beheren</button>` : ""}</div>`;
+  if (!ALL.length) hero = `<div class="hero"><div><div class="eyebrow">PM Agency</div><h2>Er staan nog geen trainingen klaar.</h2><p>${isAdmin() ? "Maak je eerste module aan onder Beheer → Inhoud." : "Je beheerder voegt binnenkort de trainingen toe."}</p></div>${isAdmin() ? `<button class="btn accent arrow" data-go="content"><span class="dot">${icon("plus", 16)}</span>Inhoud beheren</button>` : ""}</div>`;
   else if (!nt) hero = `<div class="hero"><div><div class="eyebrow">Alles afgerond</div><h2>Je hebt alle trainingen afgerond.</h2><p>Bekijk en download je certificaten.</p></div><button class="btn accent arrow" data-go="certs"><span class="dot">${icon("award", 16)}</span>Certificaten</button></div>`;
   else if (topicOpen(nt)) {
     const m = MOD_OF.get(nt), x = P.topics[nt.id];
@@ -648,7 +648,7 @@ function vLogin() {
     <button class="linkbtn" type="button" data-login-mode="password">${icon("left", 14)} Inloggen met wachtwoord</button>`;
   else form = `<form class="stack" id="login-form" data-login="code"><p class="muted small">We hebben een code gestuurd naar <b>${esc(L.email)}</b>. Kijk ook in je spam.</p><label class="field"><span>Inlogcode</span><input type="text" id="login-code" required autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6,10}" maxlength="10" placeholder="12345678"></label><button class="btn accent" type="submit" ${L.busy ? "disabled" : ""}>${L.busy ? "Bezig…" : "Inloggen"}</button></form>
     <div class="row"><button class="linkbtn" type="button" data-login-back>Nieuwe code of ander e-mailadres</button><button class="linkbtn" type="button" data-login-mode="password">Inloggen met wachtwoord</button></div>`;
-  return `<div class="login-wrap"><div class="login-card"><div class="top"><img src="/brand/wordmark-cream.png" alt="PM Agency"><span>Academy</span></div><div class="body">
+  return `<div class="login-wrap"><div class="login-card"><div class="top"><img src="/brand/wordmark-cream.png" alt="PM Agency"></div><div class="body">
     <div class="stack-sm"><h1 class="h-page" style="font-size:40px">Inloggen</h1><p class="muted">${pw ? "Log in met je e-mailadres en wachtwoord." : "Log in met een code die we je mailen."}</p></div>
     ${L.error ? `<div class="note">${icon("info", 18)}<span>${esc(L.error)}</span></div>` : ""}${form}
     <p class="small muted">Nog geen account? Vraag je teamleider om je toe te voegen.</p></div></div></div>`;

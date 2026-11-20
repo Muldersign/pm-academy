@@ -1,4 +1,4 @@
-/* PM Agency Academy: werknemersdossiers.
+/* PM Agency: werknemersdossiers.
    - Gesprekken per medewerker (evaluatie eerste 4 werkdagen, ambassadeursgesprek, kwartaal, POP en eigen types)
      volgens een format met vragen. Concept = alleen management en beheer; "gedeeld" = de medewerker ziet het ook.
    - Aantekeningen: ziek, te laat, niet op komen dagen (met datum en toelichting; alleen management en beheer).
