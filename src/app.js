@@ -844,7 +844,11 @@ async function downloadCert(t) {
   try { const mk = await loadImg("/brand/mark.svg"); g.drawImage(mk, W - 380, H - 560, 240, 240 * 1340 / 1880); } catch {}
   const blob = await new Promise(r => c.toBlob(r, "image/png"));
   if (!blob) return toast("Downloaden lukte niet");
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `PM-Agency-certificaat-${String(t.code).replace(/\s+/g, "")}.png`;
+  const filename = `PM-Agency-certificaat-${String(t.code).replace(/\s+/g, "")}.png`;
+  // In de Claude-preview loopt downloaden via de downloadfunctie van de viewer.
+  const dl = window.claude && window.claude.use ? await window.claude.use("downloads").catch(() => null) : null;
+  if (dl) { try { await dl.save({ filename, data: blob }); } catch (e) { if (!e || e.code !== "cancelled") toast("Downloaden lukte niet"); } return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 function wrap(g, text, x, y, w, lh) { const words = text.split(" "); let line = ""; for (const wd of words) { const t = line ? line + " " + wd : wd; if (g.measureText(t).width > w && line) { g.fillText(line, x, y); y += lh; line = wd; } else line = t; } if (line) g.fillText(line, x, y); }
