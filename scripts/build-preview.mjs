@@ -21,6 +21,7 @@ const scripts = [
   "window.PM_CONFIG = {};",
   read("src/curriculum.default.js"),
   read("src/backend.js"),
+  read("src/dossier.js"),
   inlineAssets(app),
 ].map(s => `<script>\n${safeScript(s)}\n</script>`).join("\n");
 

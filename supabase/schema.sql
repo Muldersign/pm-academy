@@ -1,19 +1,24 @@
 -- PM Agency Academy: databaseschema voor Supabase.
 -- Plak dit in Supabase → SQL Editor → New query en klik Run. Opnieuw uitvoeren is veilig.
 --
--- Rollen: super_admin (alles, ook rollen wijzigen), admin (inhoud, gebruikers, sales), user (leren).
+-- Rollen: super_admin (alles, ook rollen wijzigen), admin (inhoud, gebruikers, sales),
+-- management (alles inzien, gesprekken en aantekeningen in dossiers toevoegen), user (leren).
 
 -- Profielen: één rij per gebruiker, automatisch aangemaakt bij een nieuw account.
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text,
   display_name text not null default '',
-  role text not null default 'user' check (role in ('super_admin', 'admin', 'user')),
+  role text not null default 'user',
   start_date date,
   sales_total int not null default 0 check (sales_total >= 0),
   sales_month int not null default 0 check (sales_month >= 0),
   created_at timestamptz not null default now()
 );
+
+-- Rollen (ook bij bestaande databases bijwerken).
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles add constraint profiles_role_check check (role in ('super_admin', 'admin', 'management', 'user'));
 
 -- Voortgang per gebruiker: workbookantwoorden, quizscores, activiteit.
 create table if not exists public.progress (
@@ -53,6 +58,10 @@ $$;
 create or replace function public.is_admin()
 returns boolean language sql stable security definer set search_path = public as $$
   select public.my_role() in ('admin', 'super_admin');
+$$;
+create or replace function public.is_staff()
+returns boolean language sql stable security definer set search_path = public as $$
+  select public.my_role() in ('admin', 'super_admin', 'management');
 $$;
 create or replace function public.is_super_admin()
 returns boolean language sql stable security definer set search_path = public as $$
@@ -124,7 +133,7 @@ alter table public.app_content enable row level security;
 
 drop policy if exists "profiles: lezen" on public.profiles;
 create policy "profiles: lezen" on public.profiles for select to authenticated
-  using (id = auth.uid() or public.is_admin());
+  using (id = auth.uid() or public.is_staff());
 drop policy if exists "profiles: wijzigen" on public.profiles;
 create policy "profiles: wijzigen" on public.profiles for update to authenticated
   using (id = auth.uid() or public.is_admin()) with check (id = auth.uid() or public.is_admin());
@@ -137,7 +146,7 @@ drop policy if exists "progress: eigen wijzigen" on public.progress;
 create policy "progress: eigen wijzigen" on public.progress for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 drop policy if exists "team: lezen" on public.team_summary;
-create policy "team: lezen" on public.team_summary for select to authenticated using (user_id = auth.uid() or public.is_admin());
+create policy "team: lezen" on public.team_summary for select to authenticated using (user_id = auth.uid() or public.is_staff());
 drop policy if exists "team: eigen aanmaken" on public.team_summary;
 create policy "team: eigen aanmaken" on public.team_summary for insert to authenticated with check (user_id = auth.uid());
 drop policy if exists "team: eigen wijzigen" on public.team_summary;
@@ -149,3 +158,94 @@ drop policy if exists "content: beheerder aanmaken" on public.app_content;
 create policy "content: beheerder aanmaken" on public.app_content for insert to authenticated with check (public.is_admin());
 drop policy if exists "content: beheerder wijzigen" on public.app_content;
 create policy "content: beheerder wijzigen" on public.app_content for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- ---------------------------------------------------------------------------
+-- Werknemersdossiers
+-- ---------------------------------------------------------------------------
+
+-- Gespreksformats (vragen en documenten per gesprekstype). Alleen management en beheer lezen; beheer schrijft.
+create table if not exists public.staff_content (
+  key text primary key check (key in ('dossier_templates')),
+  data jsonb not null default '{}'::jsonb,
+  updated_by uuid references auth.users (id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
+-- Gesprekken. Concept = alleen management en beheer; shared = de medewerker ziet het ook.
+create table if not exists public.dossier_entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  kind text not null,
+  held_on date not null default current_date,
+  by_name text not null default '',
+  answers jsonb not null default '[]'::jsonb,
+  notes text not null default '',
+  files jsonb not null default '[]'::jsonb,
+  shared boolean not null default false,
+  created_by uuid references auth.users (id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists dossier_entries_user on public.dossier_entries (user_id);
+
+-- Aantekeningen: ziek, te laat, niet op komen dagen. Nooit zichtbaar voor de medewerker zelf.
+create table if not exists public.dossier_notes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  kind text not null check (kind in ('ziek', 'te_laat', 'no_show')),
+  on_date date not null default current_date,
+  note text not null default '',
+  by_name text not null default '',
+  created_by uuid references auth.users (id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now()
+);
+create index if not exists dossier_notes_user on public.dossier_notes (user_id);
+
+alter table public.staff_content enable row level security;
+alter table public.dossier_entries enable row level security;
+alter table public.dossier_notes enable row level security;
+
+drop policy if exists "formats: lezen" on public.staff_content;
+create policy "formats: lezen" on public.staff_content for select to authenticated using (public.is_staff());
+drop policy if exists "formats: aanmaken" on public.staff_content;
+create policy "formats: aanmaken" on public.staff_content for insert to authenticated with check (public.is_admin());
+drop policy if exists "formats: wijzigen" on public.staff_content;
+create policy "formats: wijzigen" on public.staff_content for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "gesprekken: lezen" on public.dossier_entries;
+create policy "gesprekken: lezen" on public.dossier_entries for select to authenticated
+  using (public.is_staff() or (user_id = auth.uid() and shared));
+drop policy if exists "gesprekken: aanmaken" on public.dossier_entries;
+create policy "gesprekken: aanmaken" on public.dossier_entries for insert to authenticated with check (public.is_staff());
+drop policy if exists "gesprekken: wijzigen" on public.dossier_entries;
+create policy "gesprekken: wijzigen" on public.dossier_entries for update to authenticated using (public.is_staff()) with check (public.is_staff());
+drop policy if exists "gesprekken: verwijderen" on public.dossier_entries;
+create policy "gesprekken: verwijderen" on public.dossier_entries for delete to authenticated using (public.is_admin());
+
+drop policy if exists "aantekeningen: lezen" on public.dossier_notes;
+create policy "aantekeningen: lezen" on public.dossier_notes for select to authenticated using (public.is_staff());
+drop policy if exists "aantekeningen: aanmaken" on public.dossier_notes;
+create policy "aantekeningen: aanmaken" on public.dossier_notes for insert to authenticated with check (public.is_staff());
+drop policy if exists "aantekeningen: verwijderen" on public.dossier_notes;
+create policy "aantekeningen: verwijderen" on public.dossier_notes for delete to authenticated using (public.is_staff());
+
+-- Bijlagen in een afgeschermde opslagmap "dossier".
+-- Pad per gesprek: <medewerker-id>/<gesprek-id>/<bestand>; formatdocumenten: templates/<type>/<bestand>.
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('dossier', 'dossier', false, 20971520)
+on conflict (id) do update set public = false, file_size_limit = 20971520;
+
+drop policy if exists "dossier: management en beheer" on storage.objects;
+create policy "dossier: management en beheer" on storage.objects for all to authenticated
+  using (bucket_id = 'dossier' and public.is_staff())
+  with check (bucket_id = 'dossier' and public.is_staff());
+drop policy if exists "dossier: medewerker leest gedeelde bijlagen" on storage.objects;
+create policy "dossier: medewerker leest gedeelde bijlagen" on storage.objects for select to authenticated
+  using (
+    bucket_id = 'dossier'
+    and (storage.foldername(name))[1] = auth.uid()::text
+    and exists (
+      select 1 from public.dossier_entries e
+      where e.id::text = (storage.foldername(name))[2] and e.user_id = auth.uid() and e.shared
+    )
+  );

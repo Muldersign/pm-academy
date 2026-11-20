@@ -31,6 +31,13 @@ const IC = {
   route: '<circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h7a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h7"/>',
   crown: '<path d="m3 8 4 4 5-7 5 7 4-4-2 11H5z"/>',
   ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/>',
+  folder: '<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  chat: '<path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  file: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>',
+  paperclip: '<path d="m20 11-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/>',
 };
 const icon = (n, s = 20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || ""}</svg>`;
@@ -58,7 +65,7 @@ const LEVELS = [
   { n: "Rookie", min: 0, t: "Start" }, { n: "Talent", min: 50 }, { n: "Professional", min: 100 }, { n: "Ster", min: 200 },
   { n: "Wereldklasse", min: 500 }, { n: "Legendarisch", min: 750 }, { n: "GOAT", min: 1000 },
 ];
-const ROLE_LABEL = { super_admin: "Super-admin", admin: "Admin", user: "Gebruiker" };
+const ROLE_LABEL = { super_admin: "Super-admin", admin: "Admin", management: "Management", user: "Gebruiker" };
 const KIND_LABEL = { training: "Training", verdieping: "Verdieping" };
 
 /* ---------- State ---------- */
@@ -180,28 +187,34 @@ const NAV = [
   { v: "certs", label: "Certificaten", ic: "award" },
   { v: "benefits", label: "PM Benefits", ic: "gift" },
   { v: "lb", label: "Leaderboard", short: "Ranking", ic: "trophy" },
+  { v: "mydossier", label: "Mijn dossier", ic: "folder" },
 ];
-const NAV_ADMIN = [{ v: "users", label: "Gebruikers", ic: "users" }, { v: "content", label: "Inhoud", ic: "layers" }];
+const staffNav = () => [{ v: "users", label: "Gebruikers", ic: "users" }, { v: "dossiers", label: "Dossiers", ic: "folder" }, { v: "formats", label: "Gespreksformats", ic: "chat" }].concat(isAdmin() ? [{ v: "content", label: "Inhoud", ic: "layers" }] : []);
+const STAFF_ROUTES = ["users", "dossiers", "dossier", "formats"];
 const TABBAR = ["dash", "train", "journey", "lb", "profile"];
 function go(v, extra = {}) {
   if (S.ed && S.ed.dirty && S.route.v === "content" && v !== "content") { S.confirm = { kind: "leave", v, extra }; return render(true); }
   S.route = Object.assign({ v }, extra); S.quiz = null; S.confirm = null; persistUi(); render(true); window.scrollTo({ top: 0 });
   if (v === "lb") loadLb();
   if (v === "users") loadUsers();
+  if (v === "dossiers") loadDossiers();
+  if (v === "dossier") loadDossier(extra.id);
+  if (v === "formats" && !S.templates) loadTemplates().then(() => render());
+  if (v === "mydossier") loadMyDossier();
 }
-function activeNav() { const v = S.route.v; return v === "topic" || v === "wb" ? "train" : v === "cert" ? "certs" : v; }
+function activeNav() { const v = S.route.v; return v === "topic" || v === "wb" ? "train" : v === "cert" ? "certs" : v === "dossier" ? "dossiers" : v; }
 function renderShell() {
   const navBtn = n => `<button data-go="${n.v}" ${activeNav() === n.v ? 'aria-current="page"' : ""}>${icon(n.ic)}<span>${n.label}</span>${n.v === "certs" ? `<span class="badge">${certCount()}/${certTracks().length}</span>` : ""}</button>`;
   document.getElementById("side").innerHTML = `
     <div class="side-brand"><img class="wm" src="/brand/wordmark-cream.png" alt="PM Agency"><small>Academy</small></div>
     <nav class="nav" aria-label="Hoofdmenu"><div class="nav-label">Menu</div>${NAV.map(navBtn).join("")}</nav>
-    ${isAdmin() ? `<nav class="nav" aria-label="Beheer"><div class="nav-label">Beheer</div>${NAV_ADMIN.map(navBtn).join("")}</nav>` : ""}
+    ${isStaff() ? `<nav class="nav" aria-label="Beheer"><div class="nav-label">Beheer</div>${staffNav().map(navBtn).join("")}</nav>` : ""}
     <div class="side-foot">
       <div class="save-state" id="save-state">${esc(S.saveState)}</div>
-      <button class="me-chip" data-go="profile"><span class="avatar">${esc(initials(myName()))}</span><span class="who"><b>${esc(myName() || "Jouw profiel")}</b><span>${esc(statusOf())}${isAdmin() ? " · " + ROLE_LABEL[role()] : ""}</span></span></button>
+      <button class="me-chip" data-go="profile"><span class="avatar">${esc(initials(myName()))}</span><span class="who"><b>${esc(myName() || "Jouw profiel")}</b><span>${esc(statusOf())}${isStaff() ? " · " + ROLE_LABEL[role()] : ""}</span></span></button>
     </div>`;
   const items = TABBAR.map(v => v === "profile" ? { v, short: "Profiel", ic: "user" } : NAV.find(n => n.v === v));
-  document.getElementById("tabbar").innerHTML = items.map(n => `<button data-go="${n.v}" ${activeNav() === n.v || (n.v === "profile" && ["certs", "cert", "benefits", "users", "content"].includes(S.route.v)) ? 'aria-current="page"' : ""}>${icon(n.ic, 22)}<span>${n.short || n.label}</span></button>`).join("");
+  document.getElementById("tabbar").innerHTML = items.map(n => `<button data-go="${n.v}" ${activeNav() === n.v || (n.v === "profile" && ["certs", "cert", "benefits", "users", "content", "dossiers", "dossier", "formats", "mydossier"].includes(S.route.v)) ? 'aria-current="page"' : ""}>${icon(n.ic, 22)}<span>${n.short || n.label}</span></button>`).join("");
 }
 function topline(left) {
   return `<div class="topline"><span>${left}</span><span class="row">${S.preview ? '<span class="pill warn">Voorbeeldmodus: alles open</span>' : ""}</span></div>
@@ -456,7 +469,7 @@ function vLb() {
 /* ---------- Profiel ---------- */
 function vProfile() {
   const s = sales();
-  return `${topline("Profiel")}<div class="stack-sm"><h1 class="h-page">Profiel</h1><div class="row"><span class="status-chip"><span class="ic">${icon("crown", 14)}</span>${esc(statusOf())}</span><span class="pill">${esc(LEVELS[levelIdx(s)].n)} · ${s} sales</span>${isAdmin() ? `<span class="pill brand">${ROLE_LABEL[role()]}</span>` : ""}</div></div>
+  return `${topline("Profiel")}<div class="stack-sm"><h1 class="h-page">Profiel</h1><div class="row"><span class="status-chip"><span class="ic">${icon("crown", 14)}</span>${esc(statusOf())}</span><span class="pill">${esc(LEVELS[levelIdx(s)].n)} · ${s} sales</span>${isStaff() ? `<span class="pill brand">${ROLE_LABEL[role()]}</span>` : ""}</div></div>
   <div class="grid-2">
     <div class="card stack"><h2 class="h-sec">Over jou</h2>
       <label class="field"><span>Naam op certificaten</span><input type="text" id="p-name" value="${esc(myName())}" placeholder="Voor- en achternaam" autocomplete="name"></label>
@@ -467,50 +480,53 @@ function vProfile() {
       <button class="btn ghost" data-go="certs">${icon("award", 16)} Certificaten (${certCount()}/${certTracks().length})</button>
       <button class="btn ghost" data-go="benefits">${icon("gift", 16)} PM Benefits</button>
       <button class="btn ghost" data-go="wb">${icon("clip", 16)} Mijn workbook</button>
-      ${isAdmin() ? `<button class="btn ghost" data-go="users">${icon("users", 16)} Gebruikers beheren</button><button class="btn ghost" data-go="content">${icon("layers", 16)} Inhoud beheren</button>` : ""}
+      <button class="btn ghost" data-go="mydossier">${icon("folder", 16)} Mijn dossier</button>
+      ${isStaff() ? `<button class="btn ghost" data-go="users">${icon("users", 16)} Gebruikers</button><button class="btn ghost" data-go="dossiers">${icon("folder", 16)} Dossiers</button><button class="btn ghost" data-go="formats">${icon("chat", 16)} Gespreksformats</button>` : ""}
+      ${isAdmin() ? `<button class="btn ghost" data-go="content">${icon("layers", 16)} Inhoud beheren</button>` : ""}
     </div>
   </div>
   ${isAdmin() ? `<div class="card stack-sm"><h2 class="h-sec">Voorbeeldmodus</h2><label class="check"><input type="checkbox" id="p-preview" ${S.preview ? "checked" : ""}><span>Open alle modules en quizzen voor jezelf om de inhoud na te lopen. Telt niet mee voor je voortgang en geldt alleen in dit tabblad.</span></label></div>` : ""}
-  ${be.mode === "demo" ? `<div class="card stack-sm"><h2 class="h-sec">Demo: bekijk als</h2><p class="small muted">Wissel van rol om te zien wat elke rol ziet.</p><div class="seg">${["super_admin", "admin", "user"].map(r => `<button data-demo-role="${r}" aria-pressed="${role() === r}">${ROLE_LABEL[r]}</button>`).join("")}</div></div>` : ""}
+  ${be.mode === "demo" ? `<div class="card stack-sm"><h2 class="h-sec">Demo: bekijk als</h2><p class="small muted">Wissel van rol om te zien wat elke rol ziet.</p><div class="seg">${["super_admin", "admin", "management", "user"].map(r => `<button data-demo-role="${r}" aria-pressed="${role() === r}">${ROLE_LABEL[r]}</button>`).join("")}</div></div>` : ""}
   <div class="card stack-sm"><h2 class="h-sec">Opnieuw beginnen</h2><p class="small muted">Wist je workbookantwoorden, quizscores en certificaten.</p>
   ${S.confirm && S.confirm.kind === "reset" ? `<div class="confirm"><span class="small">Weet je het zeker? Dit kun je niet ongedaan maken.</span><button class="btn sm" data-reset-yes>Ja, alles wissen</button><button class="linkbtn" data-confirm-no>Annuleren</button></div>` : `<div><button class="btn ghost sm" data-reset>Voortgang wissen</button></div>`}</div>
   <div class="card spread"><div class="stack-sm" style="gap:2px"><span class="eyebrow">Ingelogd als</span><b>${esc(S.me.email)}</b></div><button class="btn ghost sm" data-logout>${be.mode === "demo" ? "Demo opnieuw beginnen" : "Uitloggen"}</button></div>`;
 }
 
 /* ---------- Beheer: gebruikers ---------- */
-async function loadUsers() { if (!isAdmin()) return; try { S.users = await be.listUsers(); } catch (e) { S.users = []; toast(e.message || "Laden lukte niet"); } S.userDraft = {}; if (S.route.v === "users") render(); }
+async function loadUsers() { if (!isStaff()) return; try { S.users = await be.listUsers(); } catch (e) { S.users = []; toast(e.message || "Laden lukte niet"); } S.userDraft = {}; if (S.route.v === "users") render(); }
 function vUsers() {
-  if (!isAdmin()) return vDash();
+  if (!isStaff()) return vDash();
+  const ro = !isAdmin();
   const U = S.users;
   const draftN = Object.keys(S.userDraft).length;
   const add = S.addUser ? `<div class="card stack"><h2 class="h-sec">Gebruiker toevoegen</h2>
     <div class="grid-2"><label class="field"><span>Naam</span><input type="text" id="nu-name" value="${esc(S.addUser.name)}" placeholder="Voor- en achternaam"></label><label class="field"><span>E-mailadres</span><input type="email" id="nu-email" value="${esc(S.addUser.email)}" placeholder="naam@pmagency.nl"></label>
     <label class="field"><span>Startdatum</span><input type="date" id="nu-start" value="${esc(S.addUser.start_date)}"></label>
-    <label class="field"><span>Rol</span><select id="nu-role">${["user", "admin"].filter(r => r === "user" || isSuper()).map(r => `<option value="${r}" ${S.addUser.role === r ? "selected" : ""}>${ROLE_LABEL[r]}</option>`).join("")}</select>${isSuper() ? "" : "<small>Alleen de super-admin kan admins toevoegen.</small>"}</label></div>
+    <label class="field"><span>Rol</span><select id="nu-role">${["user", "management", "admin"].filter(r => r === "user" || isSuper()).map(r => `<option value="${r}" ${S.addUser.role === r ? "selected" : ""}>${ROLE_LABEL[r]}</option>`).join("")}</select>${isSuper() ? "" : "<small>Alleen de super-admin kan management en admins toevoegen.</small>"}</label></div>
     <p class="small muted">De nieuwe gebruiker start als ${esc(C.startStatus || "Junior-Ambassadeur")} en logt in op deze site met dit e-mailadres en een code die per mail komt.</p>
     <div class="row"><button class="btn accent" data-user-create ${S.addUser.busy ? "disabled" : ""}>${S.addUser.busy ? "Bezig…" : "Toevoegen"}</button><button class="linkbtn" data-user-add-cancel>Annuleren</button></div></div>` : "";
   let table;
   if (!U) table = `<p class="muted">Laden…</p>`;
   else table = `<div class="table-wrap"><table><thead><tr><th>Naam</th><th>Rol</th><th>Status</th><th>Voortgang</th><th>Journey</th><th class="num">Sales maand</th><th class="num">Sales totaal</th><th>Startdatum</th><th>Laatst actief</th><th></th></tr></thead><tbody>${U.map(u => {
     const d = S.userDraft[u.id] || {}, val = k => d[k] ?? u[k] ?? "", sm = u.summary || {};
-    const canRole = isSuper() && u.id !== S.me.id, canDel = u.id !== S.me.id && u.role !== "super_admin" && (isSuper() || u.role === "user");
+    const canRole = isSuper() && u.id !== S.me.id, canDel = !ro && u.id !== S.me.id && u.role !== "super_admin" && (isSuper() || u.role === "user");
     const confirmDel = S.confirm && S.confirm.kind === "deluser" && S.confirm.id === u.id;
     return `<tr><td><b>${esc(u.display_name || sm.name || "Naam onbekend")}</b><div class="small muted">${esc(u.email || "")}</div></td>
-      <td>${canRole ? `<select class="cell-select" data-user-role="${u.id}">${["user", "admin", "super_admin"].map(r => `<option value="${r}" ${u.role === r ? "selected" : ""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : `<span class="pill ${u.role === "user" ? "" : "brand"}">${ROLE_LABEL[u.role] || u.role}</span>`}</td>
+      <td>${canRole ? `<select class="cell-select" data-user-role="${u.id}">${["user", "management", "admin", "super_admin"].map(r => `<option value="${r}" ${u.role === r ? "selected" : ""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : `<span class="pill ${u.role === "user" ? "" : "brand"}">${ROLE_LABEL[u.role] || u.role}</span>`}</td>
       <td class="small">${esc(sm.status || C.startStatus || "Junior-Ambassadeur")}</td>
       <td><div class="row" style="flex-wrap:nowrap;gap:8px"><div class="bar" style="width:90px"><i style="width:${Math.min(100, sm.pct || 0)}%"></i></div><span class="small tnum">${sm.pct || 0}%</span></div>${sm.current_title ? `<div class="small muted">${esc(sm.current_title)}</div>` : ""}</td>
       <td class="small">${esc(LEVELS[levelIdx(Number(val("sales_total")) || 0)].n)}</td>
-      <td class="num"><input class="cell-input" type="number" min="0" inputmode="numeric" data-user="${u.id}" data-k="sales_month" value="${esc(val("sales_month"))}" aria-label="Sales deze maand"></td>
+      ${ro ? `<td class="num">${u.sales_month || 0}</td><td class="num">${u.sales_total || 0}</td><td class="small">${u.start_date ? fmtDate(u.start_date) : "–"}</td>` : `<td class="num"><input class="cell-input" type="number" min="0" inputmode="numeric" data-user="${u.id}" data-k="sales_month" value="${esc(val("sales_month"))}" aria-label="Sales deze maand"></td>
       <td class="num"><input class="cell-input" type="number" min="0" inputmode="numeric" data-user="${u.id}" data-k="sales_total" value="${esc(val("sales_total"))}" aria-label="Sales totaal"></td>
-      <td><input class="cell-input" style="width:150px!important;text-align:left" type="date" data-user="${u.id}" data-k="start_date" value="${esc(String(val("start_date")).slice(0, 10))}" aria-label="Startdatum"></td>
+      <td><input class="cell-input" style="width:150px!important;text-align:left" type="date" data-user="${u.id}" data-k="start_date" value="${esc(String(val("start_date")).slice(0, 10))}" aria-label="Startdatum"></td>`}
       <td class="small muted">${sm.last_active ? fmtDate(sm.last_active) : "Nog niet"}</td>
-      <td>${confirmDel ? `<span class="row" style="flex-wrap:nowrap;gap:6px"><button class="btn danger sm" data-user-del-yes="${u.id}">Verwijderen</button><button class="linkbtn" data-confirm-no>Nee</button></span>` : canDel ? `<button class="iconbtn" data-user-del="${u.id}" aria-label="Gebruiker verwijderen">${icon("trash", 15)}</button>` : ""}</td></tr>`;
+      <td><span class="row" style="flex-wrap:nowrap;gap:6px"><button class="btn ghost sm" data-dossier="${u.id}">${icon("folder", 14)} Dossier</button>${confirmDel ? `<span class="row" style="flex-wrap:nowrap;gap:6px"><button class="btn danger sm" data-user-del-yes="${u.id}">Verwijderen</button><button class="linkbtn" data-confirm-no>Nee</button></span>` : canDel ? `<button class="iconbtn" data-user-del="${u.id}" aria-label="Gebruiker verwijderen">${icon("trash", 15)}</button>` : ""}</span></td></tr>`;
   }).join("")}</tbody></table></div>`;
   const resetConfirm = S.confirm && S.confirm.kind === "monthreset";
-  return `${topline("Beheer")}<div class="spread" style="align-items:flex-end"><div class="stack-sm"><span class="eyebrow red">Beheer</span><h1 class="h-page">Gebruikers</h1><p class="lede">Voeg verkopers toe, werk dagelijks de sales bij en volg de voortgang.${isSuper() ? " Als super-admin wijzig je ook rollen." : ""}</p></div>${S.addUser ? "" : `<button class="btn accent" data-user-add>${icon("plus", 16)} Gebruiker toevoegen</button>`}</div>
+  return `${topline("Beheer")}<div class="spread" style="align-items:flex-end"><div class="stack-sm"><span class="eyebrow red">Beheer</span><h1 class="h-page">Gebruikers</h1><p class="lede">${ro ? "Voortgang, sales en dossiers van het team. Als management kun je meekijken en gesprekken toevoegen aan dossiers." : "Voeg verkopers toe, werk dagelijks de sales bij en volg de voortgang."}${isSuper() ? " Als super-admin wijzig je ook rollen." : ""}</p></div>${S.addUser || ro ? "" : `<button class="btn accent" data-user-add>${icon("plus", 16)} Gebruiker toevoegen</button>`}</div>
   ${add}${table}
-  <div class="row"><button class="btn accent" id="users-save" data-users-save ${draftN ? "" : "disabled"}>${draftN ? `Wijzigingen opslaan (${draftN})` : "Wijzigingen opslaan"}</button><button class="linkbtn" id="users-discard" data-users-discard ${draftN ? "" : "hidden"}>Annuleren</button><span class="small muted">Pas sales of startdatum aan in de tabel en klik op Opslaan.</span>
-  <span style="margin-left:auto">${resetConfirm ? `<span class="confirm"><span class="small">Alle "sales deze maand" op 0 zetten?</span><button class="btn sm" data-month-reset-yes>Ja, nieuwe maand</button><button class="linkbtn" data-confirm-no>Annuleren</button></span>` : `<button class="btn ghost sm" data-month-reset>Nieuwe maand starten</button>`}</span></div>`;
+  ${ro ? "" : `<div class="row"><button class="btn accent" id="users-save" data-users-save ${draftN ? "" : "disabled"}>${draftN ? `Wijzigingen opslaan (${draftN})` : "Wijzigingen opslaan"}</button><button class="linkbtn" id="users-discard" data-users-discard ${draftN ? "" : "hidden"}>Annuleren</button><span class="small muted">Pas sales of startdatum aan in de tabel en klik op Opslaan.</span>
+  <span style="margin-left:auto">${resetConfirm ? `<span class="confirm"><span class="small">Alle "sales deze maand" op 0 zetten?</span><button class="btn sm" data-month-reset-yes>Ja, nieuwe maand</button><button class="linkbtn" data-confirm-no>Annuleren</button></span>` : `<button class="btn ghost sm" data-month-reset>Nieuwe maand starten</button>`}</span></div>`}`;
 }
 
 /* ---------- Beheer: inhoud ---------- */
@@ -630,7 +646,7 @@ function render(force) {
   indexC();
   renderShell();
   const v = S.route.v;
-  const views = { dash: vDash, train: vTrain, topic: vTopic, wb: vWorkbook, journey: vJourney, certs: vCerts, cert: vCert, benefits: vBenefits, lb: vLb, profile: vProfile, users: vUsers, content: vContent };
+  const views = { dash: vDash, train: vTrain, topic: vTopic, wb: vWorkbook, journey: vJourney, certs: vCerts, cert: vCert, benefits: vBenefits, lb: vLb, profile: vProfile, users: vUsers, dossiers: vDossiers, dossier: vDossier, formats: vFormats, mydossier: vMyDossier, content: vContent };
   document.getElementById("view").innerHTML = (views[v] || vDash)();
 }
 document.addEventListener("focusout", () => setTimeout(() => { if (pendingRender && !editing()) render(); }, 0));
@@ -651,6 +667,7 @@ document.addEventListener("click", async e => {
   if (d.lbmode) { S.lbMode = d.lbmode; return render(true); }
   if (d.editTopic) { S.ed = null; openEditor(d.editTopic); return go("content"); }
   if ("confirmNo" in d) { S.confirm = null; return render(true); }
+  if (await dossierClick(d)) return;
 
   // Profiel
   if ("saveProfile" in d) {
@@ -661,7 +678,7 @@ document.addEventListener("click", async e => {
   if ("reset" in d) { S.confirm = { kind: "reset" }; return render(true); }
   if ("resetYes" in d) { P = blankProgress(); S.confirm = null; save(); toast("Voortgang gewist"); return render(true); }
   if ("logout" in d) { await be.signOut(); lsSet("pm-academy-ui", "{}"); location.reload(); return; }
-  if (d.demoRole) { be.setDemoRole(d.demoRole); S.me = await be.me(); S.users = null; return render(true); }
+  if (d.demoRole) { be.setDemoRole(d.demoRole); S.me = await be.me(); S.users = null; S.dStats = null; S.dossier = null; S.entry = null; if (isStaff() && !S.templates) await loadTemplates(); return render(true); }
   if ("loginBack" in d) { S.login = { step: "email", email: S.login.email, busy: false, error: "" }; return render(true); }
 
   // Benefits
@@ -750,6 +767,7 @@ document.addEventListener("input", e => {
     return;
   }
   if (d.ben) { S.benDraft[Number(d.ben)][d.k] = el.value; return; }
+  if (dossierInput(el, d)) return;
   if (d.user) {
     (S.userDraft[d.user] ||= {})[d.k] = el.value;
     const n = Object.keys(S.userDraft).length, btn = document.getElementById("users-save"), x = document.getElementById("users-discard");
@@ -775,6 +793,7 @@ document.addEventListener("change", async e => {
     const b = document.getElementById("submit-quiz"); if (b) b.disabled = n !== t.quiz.length;
     return;
   }
+  if (await dossierChange(el, d)) return;
   if (el.id === "p-preview") { S.preview = el.checked; S.quiz = null; toast(el.checked ? "Voorbeeldmodus aan" : "Voorbeeldmodus uit"); return render(true); }
   if (d.userRole) {
     try { await be.updateUser(d.userRole, { role: el.value }); toast("Rol gewijzigd"); await loadUsers(); } catch (err) { toast(err.message || "Rol wijzigen lukte niet"); await loadUsers(); }
@@ -860,11 +879,15 @@ async function start() {
   P = Object.assign(blankProgress(), prog || {});
   if (cur && cur.data && Array.isArray(cur.data.tracks)) { C = cur.data; S.cMeta = cur.updated_at; } else S.cMeta = null;
   S.benefits = (ben && ben.data) || { items: [] };
-  if (S.route.v === "login" || (["users", "content"].includes(S.route.v) && !isAdmin())) S.route = { v: "dash" };
+  if (S.route.v === "login" || (S.route.v === "content" && !isAdmin()) || (STAFF_ROUTES.includes(S.route.v) && !isStaff())) S.route = { v: "dash" };
   setSaveState(be.mode === "demo" ? "Demo · opgeslagen in deze browser" : "");
   render(true);
   if (S.route.v === "lb") loadLb();
   if (S.route.v === "users") loadUsers();
+  if (S.route.v === "dossiers") loadDossiers();
+  if (S.route.v === "dossier") loadDossier(S.route.id);
+  if (S.route.v === "mydossier") loadMyDossier();
+  if (isStaff()) loadTemplates();
   if (!prog) save();
 }
 (async function boot() {

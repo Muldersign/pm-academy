@@ -1,6 +1,7 @@
 // Gebruikersbeheer voor beheerders: gebruiker toevoegen en verwijderen.
 // Draait als Vercel-functie met de service role key, die nooit naar de browser gaat.
-// Rollen: super_admin mag admins en gebruikers beheren, admin alleen gebruikers.
+// Rollen: super_admin mag admins, management en gebruikers beheren; admin alleen gebruikers.
+// Management kan hier niets: dat is een rol om mee te kijken en gesprekken vast te leggen.
 
 const URL_ = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,9 +36,9 @@ export default async function handler(req, res) {
   if (body.action === "create") {
     const email = String(body.email || "").trim().toLowerCase();
     const name = String(body.name || "").trim().slice(0, 120);
-    const role = ["user", "admin"].includes(body.role) ? body.role : "user";
+    const role = ["user", "management", "admin"].includes(body.role) ? body.role : "user";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !name) return fail(res, 400, "Vul een naam en een geldig e-mailadres in");
-    if (role === "admin" && callerRole !== "super_admin") return fail(res, 403, "Alleen de super-admin kan admins toevoegen");
+    if (role !== "user" && callerRole !== "super_admin") return fail(res, 403, "Alleen de super-admin kan management en admins toevoegen");
     const created = await sb("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email, email_confirm: true, user_metadata: { name } }) });
     if (!created.ok) {
       const msg = JSON.stringify(created.body || "");
@@ -58,7 +59,7 @@ export default async function handler(req, res) {
     const targetRole = target.body && target.body[0] && target.body[0].role;
     if (!targetRole) return fail(res, 404, "Gebruiker niet gevonden");
     if (targetRole === "super_admin") return fail(res, 403, "Een super-admin kan niet worden verwijderd");
-    if (targetRole === "admin" && callerRole !== "super_admin") return fail(res, 403, "Alleen de super-admin kan admins verwijderen");
+    if (targetRole !== "user" && callerRole !== "super_admin") return fail(res, 403, "Alleen de super-admin kan management en admins verwijderen");
     const del = await sb(`/auth/v1/admin/users/${id}`, { method: "DELETE" });
     if (!del.ok) return fail(res, 500, "Verwijderen lukte niet");
     return res.status(200).json({ ok: true });

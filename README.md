@@ -8,17 +8,21 @@ De trainingsomgeving van PM Agency, in de huisstijl van PM Agency.
 - **Status:** iedereen start als **Junior-Ambassadeur** en wordt na TRM 1 **Ambassadeur**. Dit is per module in te stellen.
 - **The PM Journey:** Rookie, Talent (50), Professional (100), Ster (200), Wereldklasse (500), Legendarisch (750), GOAT (1000 sales).
 - **PM Benefits** en een **leaderboard** (deze maand en totaal).
-- **Rollen:** super-admin, admin en gebruiker.
+- **Rollen:** super-admin, admin, management en gebruiker.
+- **Werknemersdossiers:** per medewerker gesprekken (evaluatie eerste 4 werkdagen, ambassadeurs-, kwartaal- en POP-gesprekken) volgens een eigen format met vragen en documenten, plus aantekeningen (ziek, te laat, niet op komen dagen). Een gesprek is eerst een concept; na delen ziet de medewerker het onder Mijn dossier. Aantekeningen ziet de medewerker nooit.
 - **Installeerbaar** als app op telefoon en desktop.
 
-| | Gebruiker | Admin | Super-admin |
-| --- | :-: | :-: | :-: |
-| Trainingen volgen, certificaten, journey, leaderboard | ✓ | ✓ | ✓ |
-| Inhoud bewerken (modules, video, workbook, quiz) | | ✓ | ✓ |
-| Benefits bewerken | | ✓ | ✓ |
-| Gebruikers toevoegen en verwijderen | | ✓ | ✓ |
-| Sales en startdatum bijwerken, teamvoortgang zien | | ✓ | ✓ |
-| Admins toevoegen of verwijderen, rollen wijzigen | | | ✓ |
+| | Gebruiker | Management | Admin | Super-admin |
+| --- | :-: | :-: | :-: | :-: |
+| Trainingen volgen, certificaten, journey, leaderboard | ✓ | ✓ | ✓ | ✓ |
+| Eigen gedeelde gesprekken zien (Mijn dossier) | ✓ | ✓ | ✓ | ✓ |
+| Team, voortgang, sales en dossiers inzien | | ✓ | ✓ | ✓ |
+| Gesprekken en aantekeningen toevoegen aan dossiers | | ✓ | ✓ | ✓ |
+| Gesprekken verwijderen, gespreksformats bewerken | | | ✓ | ✓ |
+| Inhoud bewerken (modules, video, workbook, quiz) | | | ✓ | ✓ |
+| Benefits bewerken, sales en startdatum bijwerken | | | ✓ | ✓ |
+| Gebruikers toevoegen en verwijderen | | | ✓ | ✓ |
+| Management en admins toevoegen, rollen wijzigen | | | | ✓ |
 
 Deze rechten worden afgedwongen in de database en de serverfunctie, niet alleen in de app.
 
@@ -80,6 +84,8 @@ Zonder Supabase-gegevens draait de app als **demo**: alles werkt, en alles wordt
 - **Sales bijwerken:** Beheer → Gebruikers, pas "Sales maand" en "Sales totaal" aan en klik **Wijzigingen opslaan**. Aan het begin van een maand klik je **Nieuwe maand starten**.
 - **Inhoud aanpassen:** Beheer → Inhoud. Kies links een module, onderdeel of onderwerp en pas rechts de velden aan. Met **+ Nieuwe module** maak je een nieuwe module (specificatie: training of verdieping). Klik onderaan op **Opslaan**.
 - **Video's:** plak een link van Loom, YouTube of Vimeo. De video verschijnt direct in de pagina.
+- **Gespreksformats:** Beheer → Gespreksformats → Bewerken. Pas de vragen per gesprekstype aan en upload het formatdocument (zoals de junior guide). Management ziet de formats; medewerkers zien de vragen pas als een gesprek met hen is gedeeld.
+- **Dossiers:** Beheer → Dossiers, of de knop Dossier bij een gebruiker. Registreer ziek, te laat of niet op komen dagen met datum en toelichting, en leg gesprekken vast met bijlagen.
 
 ## Lokaal draaien
 
