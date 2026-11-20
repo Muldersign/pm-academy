@@ -822,13 +822,27 @@ document.addEventListener("submit", async e => {
   L.error = ""; L.busy = true; render(true);
   try {
     if (f.dataset.login === "email") { await be.sendCode(L.email); L.step = "code"; }
-    else { await be.verifyCode(L.email, token); L.busy = false; await start(); return; }
+    else {
+      await be.verifyCode(L.email, token);
+      try { L.busy = false; await start(); return; }
+      catch (err) {
+        console.error("Inloggen gelukt, maar laden mislukte:", err);
+        const m = String(err && (err.message || err.code) || err);
+        L.step = "email"; L.busy = false;
+        L.error = /relation|does not exist|schema cache|PGRST20[25]/i.test(m) ? "De code klopte, maar de database is nog niet ingericht. Voer supabase/schema.sql uit in de SQL Editor van Supabase."
+          : /0 rows|PGRST116|multiple \(or no\) rows|no rows/i.test(m) ? "De code klopte, maar er is geen profiel voor dit e-mailadres. Voer supabase/schema.sql (opnieuw) uit; dat maakt ontbrekende profielen aan."
+          : "De code klopte, maar je gegevens konden niet worden geladen. Technische melding: " + m;
+        await be.signOut().catch(() => {});
+        return render(true);
+      }
+    }
   } catch (err) {
+    console.error("Inloggen mislukt:", err);
     const m = String(err && err.message || "");
     L.error = /signups not allowed|not found|Signups/i.test(m) ? "Dit e-mailadres heeft nog geen toegang. Vraag je teamleider om je toe te voegen."
       : /expired|invalid/i.test(m) ? "Deze code klopt niet of is verlopen. Vraag een nieuwe code aan."
       : /rate|too many|seconds/i.test(m) ? "Even wachten voordat je een nieuwe code aanvraagt."
-      : "Inloggen lukte niet. Probeer het opnieuw.";
+      : "Inloggen lukte niet. Technische melding: " + (m || "onbekend");
   }
   L.busy = false; render(true);
 });
